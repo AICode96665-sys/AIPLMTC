@@ -4,7 +4,16 @@ const MB = 1024 * 1024
 
 /** "Download AI model" button with progress — asks the local Ollama to fetch the
  *  app's model (about 1 GB, once). Calls onDone when the model is installed. */
-export default function ModelDownload({ model, onDone }: { model: string; onDone: () => void }): JSX.Element {
+export default function ModelDownload({
+  model,
+  onDone,
+  autoStart = false
+}: {
+  model: string
+  onDone: () => void
+  /** Start downloading as soon as it's shown (once). */
+  autoStart?: boolean
+}): JSX.Element {
   const [running, setRunning] = useState(false)
   const [status, setStatus] = useState('')
   const [bytes, setBytes] = useState<{ done: number; total: number } | null>(null)
@@ -29,6 +38,12 @@ export default function ModelDownload({ model, onDone }: { model: string; onDone
     if (r.ok) onDone()
     else setError(r.error)
   }
+
+  // start automatically once (the user can still Cancel; afterwards the button is shown)
+  useEffect(() => {
+    if (autoStart) void start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const pct = bytes && bytes.total > 0 ? Math.min(100, Math.round((100 * bytes.done) / bytes.total)) : null
 

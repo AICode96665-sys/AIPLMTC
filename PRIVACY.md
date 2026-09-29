@@ -22,11 +22,14 @@ telemetry and no cloud AI. The AI model runs locally through Ollama on the same 
 | `http://127.0.0.1:11434` (Ollama, local) | Run the AI model | The user's request text and the relevant catalog operation names/descriptions |
 | *(none other)* | — | — |
 
-The app itself makes **no internet connections**. The AI model is downloaded **once** by
-Ollama from its model library, only when the user asks for it: either with the
-**Download AI model** button (the app asks the local Ollama to fetch
-`qwen2.5-coder:1.5b` and shows progress) or with `ollama pull qwen2.5-coder:1.5b`.
-That download sends no user data, only a request for the public model files.
+The app itself makes **no internet connections**. Two things happen automatically on this PC:
+
+- **Starting Ollama:** if Ollama is installed but not running, the app starts it (its own
+  program in `%LOCALAPPDATA%\Programs\Ollama`, or `ollama serve`).
+- **Downloading the AI model:** if `qwen2.5-coder:1.5b` is not installed, the app asks the
+  local Ollama to download it **once** from Ollama's model library, with progress and a
+  Cancel button. This sends no user data — only a request for the public model files.
+  `start.bat` does the same (and can install Ollama itself with `winget`).
 
 ## Files the app writes
 

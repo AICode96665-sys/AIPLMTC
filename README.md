@@ -27,9 +27,10 @@ Teamcenter is a trademark of Siemens.*
 ## What you need
 
 1. **Windows 10/11** (8 GB RAM is enough).
-2. **Ollama**: install from [ollama.com](https://ollama.com). The AI model (about 1 GB)
-   is downloaded once: the app shows a **Download AI model** button with progress, or run
-   `ollama pull qwen2.5-coder:1.5b` yourself.
+2. **Ollama** (free), which runs the AI on your PC: install from [ollama.com](https://ollama.com)
+   (`start.bat` can install it for you). You don't need to do anything else: the app
+   **starts Ollama automatically** and **downloads the AI model automatically** the first time
+   (about 1 GB, once, with a progress bar and Cancel).
 3. **Your Teamcenter API catalog (`structure.js`)**: the data file behind the Teamcenter
    Services API reference that comes with your Teamcenter documentation. You must be licensed
    to use it; the app does **not** include any Siemens data. See [FINDINGS.md](FINDINGS.md)
@@ -71,9 +72,9 @@ defaults are fine.
 | Step | What it does |
 |---|---|
 | 1 | Checks that Node.js is installed and new enough |
-| 2 | **Ollama not installed?** Asks *"Install Ollama now?"*. **Y** installs it with Windows' `winget` (or opens ollama.com if winget isn't available); **N** continues, and the app shows setup help |
+| 2 | **Ollama not installed?** Installs it automatically with Windows' `winget` after a 10-second countdown (press **N** to skip); opens ollama.com if winget isn't available |
 | 3 | **Ollama installed but not running?** Starts it automatically |
-| 4 | **AI model missing?** Asks *"Download it now?"* (about 1 GB, once). **N** is fine: the app has a **Download AI model** button |
+| 4 | **AI model missing?** Downloads it automatically (about 1 GB, first time only) |
 | 5 | First run only: installs the app's components (a few minutes) and Electron |
 | 6 | Builds the app and opens **TC SOA Studio** |
 

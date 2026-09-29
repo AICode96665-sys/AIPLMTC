@@ -24,7 +24,8 @@ if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
 echo [!] Ollama is not installed. The app needs it: it runs the AI model on this PC.
 where winget >nul 2>nul
 if errorlevel 1 goto :ollama_open_site
-choice /c YN /m "    Install Ollama now"
+echo     Installing it automatically in 10 seconds - press N to skip, Y to start now.
+choice /c YN /t 10 /d Y /m "    Install Ollama now"
 if errorlevel 2 goto :ollama_later
 echo     Installing Ollama with winget - follow any prompts below...
 winget install --id Ollama.Ollama -e
@@ -77,15 +78,11 @@ rem --- 4. The AI model --------------------------------------------------------
 :check_model
 ollama list 2>nul | findstr /i /c:"qwen2.5-coder:1.5b" >nul
 if not errorlevel 1 goto :install
-echo [!] The AI model qwen2.5-coder:1.5b is not installed yet - about 1 GB.
-choice /c YN /m "    Download it now"
-if errorlevel 2 goto :model_later
+echo Downloading the AI model qwen2.5-coder:1.5b - about 1 GB, first time only...
 ollama pull qwen2.5-coder:1.5b
-echo.
-goto :install
-
-:model_later
-echo     OK - the app has a Download AI model button for later.
+if errorlevel 1 (
+  echo [!] The model download did not finish. The app will try again when it opens.
+)
 echo.
 
 rem --- 5. Components - first run only ------------------------------------

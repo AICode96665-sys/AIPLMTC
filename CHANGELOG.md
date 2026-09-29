@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Automatic setup:** the app starts Ollama if it is installed but not running, and
+  downloads the AI model automatically when it is missing (progress bar + Cancel).
+  `start.bat` downloads the model without asking and installs Ollama after a 10-second
+  countdown (press N to skip).
 - `start.bat`: if Ollama is not installed, offers to install it (`winget install Ollama.Ollama`,
   or opens ollama.com); if Ollama is installed but not running, starts it automatically.
 - **Download AI model** button in the app: asks the local Ollama to download the model

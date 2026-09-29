@@ -6,7 +6,7 @@ import { planFlow } from '../shared/ai/planner'
 import { planToJava } from '../shared/codegen/fromPlan'
 import { LIMITS } from '../shared/edition'
 import type { AiBuildResult } from '../shared/ai/status'
-import { listModels, pickDefaultModel, ollamaChat, pullModel, recommendedModel, ramGB, type AiStatus } from './ollama'
+import { ensureOllamaRunning, listModels, pickDefaultModel, ollamaChat, pullModel, recommendedModel, ramGB, type AiStatus } from './ollama'
 
 // Note: this app does NOT bundle or redistribute any Teamcenter catalog data.
 // Customers load their own structure.js (which they are licensed to possess).
@@ -194,6 +194,7 @@ function readAiModel(): string | null {
 }
 
 async function aiStatus(): Promise<AiStatus> {
+  await ensureOllamaRunning() // installed but not running -> start it automatically
   const listed = await listModels()
   if (LIMITS.model) {
     // this edition uses exactly one model

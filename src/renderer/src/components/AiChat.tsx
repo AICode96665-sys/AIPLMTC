@@ -99,7 +99,7 @@ export default function AiChat({
       )}
       <div className="chat-list" ref={listRef}>
         {checking && !status ? (
-          <p className="muted">Checking local AI…</p>
+          <p className="muted">Starting the local AI (Ollama)…</p>
         ) : !status?.running ? (
           <div className="chat-setup">
             <p>
@@ -123,9 +123,9 @@ export default function AiChat({
         ) : !status.selected ? (
           <div className="chat-setup">
             <p>
-              <b>Ollama is running, but the AI model is not installed yet.</b>
+              <b>Getting the AI model ready.</b> It is downloaded once (about 1 GB) and reused after that.
             </p>
-            <ModelDownload model={status.recommended} onDone={onRefresh} />
+            <ModelDownload model={status.recommended} onDone={onRefresh} autoStart />
             <p className="muted dl-alt">
               Or in a terminal: <code>ollama pull {status.recommended}</code>, then{' '}
               <button className="link-btn" onClick={onRefresh} disabled={checking}>

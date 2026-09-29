@@ -2,6 +2,9 @@
 // Nothing leaves the computer — requests go to localhost only.
 
 import { totalmem } from 'node:os'
+import { spawn, spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import type { ChatFn, ChatMessage } from '../shared/ai/planner'
 import type { AiModel } from '../shared/ai/status'
 
@@ -165,4 +168,43 @@ export async function pullModel(
     throw err
   }
   if (!done) throw new Error('Download ended before it finished. Please try again.')
+}
+
+// --- Start Ollama automatically -------------------------------------------------
+
+/** Where Ollama is installed: its tray app (preferred) or the ollama CLI. */
+function findOllama(): { app?: string; cli?: string } {
+  const base = process.env['LOCALAPPDATA'] ? join(process.env['LOCALAPPDATA'], 'Programs', 'Ollama') : ''
+  const app = base && existsSync(join(base, 'ollama app.exe')) ? join(base, 'ollama app.exe') : undefined
+  let cli = base && existsSync(join(base, 'ollama.exe')) ? join(base, 'ollama.exe') : undefined
+  if (!cli) {
+    const w = spawnSync('where', ['ollama'], { encoding: 'utf8', windowsHide: true })
+    cli = w.status === 0 ? w.stdout.split(/\r?\n/)[0].trim() || undefined : undefined
+  }
+  return { app, cli }
+}
+
+export type OllamaStart = 'running' | 'started' | 'not-installed' | 'failed'
+
+/** Make sure the local Ollama server is up: if it's installed but not running,
+ *  start it (its tray app, or "ollama serve") and wait up to ~20 s. Only the
+ *  known Ollama executables are started — never anything from user input. */
+export async function ensureOllamaRunning(): Promise<OllamaStart> {
+  if ((await listModels()).running) return 'running'
+  const { app, cli } = findOllama()
+  if (!app && !cli) return 'not-installed'
+  try {
+    const child = app
+      ? spawn(app, [], { detached: true, stdio: 'ignore', windowsHide: true })
+      : spawn(cli!, ['serve'], { detached: true, stdio: 'ignore', windowsHide: true })
+    child.on('error', () => {})
+    child.unref()
+  } catch {
+    return 'failed'
+  }
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 500))
+    if ((await listModels()).running) return 'started'
+  }
+  return 'failed'
 }
