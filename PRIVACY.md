@@ -39,7 +39,6 @@ All in the app's private folder: `%APPDATA%\tc-soa-studio\` (the Windows user pr
 |---|---|---|
 | `catalog.js` | Copy of the user's `structure.js` (so it only has to be loaded once) | Siemens API reference data the customer is licensed to have; no personal data |
 | `catalog-meta.json` | File name and version of the loaded catalog | No |
-| `ai-settings.json` | Selected AI model name | No |
 | Electron's standard cache folders | Browser engine cache for the app's own screens | No |
 
 No passwords, tokens, keys, prompts, answers or personal data are stored. There is no

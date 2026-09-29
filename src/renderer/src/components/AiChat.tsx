@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AiBuildResult, AiStatus } from '@shared/ai/status'
 import type { Operation } from '@shared/index'
-import { LIMITS } from '@shared/edition'
 import ModelDownload from './ModelDownload'
 
 export interface Turn {
@@ -23,7 +22,6 @@ export default function AiChat({
   status,
   checking,
   onRefresh,
-  onChooseModel,
   turns,
   activeId,
   onSelect,
@@ -37,7 +35,6 @@ export default function AiChat({
   status: AiStatus | null
   checking: boolean
   onRefresh: () => void
-  onChooseModel: (model: string) => void
   turns: Turn[]
   activeId: number | null
   onSelect: (id: number) => void
@@ -69,34 +66,13 @@ export default function AiChat({
     <aside className="chat">
       <div className="chat-head">
         <b>✨ AI assistant</b>
-        {LIMITS.model ? (
-          status?.selected && (
-            <span className="chat-model-fixed" title="AI model used by this edition (runs on this computer)">
-              AI model: {status.selected}
-            </span>
-          )
-        ) : status?.running && status.models.length > 0 && (
-          <select
-            className="chat-model"
-            value={status.selected ?? ''}
-            onChange={(e) => onChooseModel(e.target.value)}
-            disabled={busy}
-            title="AI model (runs on this computer)"
-          >
-            {status.models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.name} ({m.sizeGB} GB){m.nonCommercial ? ' — non-commercial license' : ''}
-              </option>
-            ))}
-          </select>
+        {status?.selected && (
+          <span className="chat-model-fixed" title="The AI model this app uses (runs on this computer)">
+            AI model: {status.selected}
+          </span>
         )}
       </div>
 
-      {status?.models.find((m) => m.name === status.selected)?.nonCommercial && (
-        <div className="license-warn">
-          ⚠ {status.selected} is licensed for non-commercial use only. Pick another model for business use.
-        </div>
-      )}
       <div className="chat-list" ref={listRef}>
         {checking && !status ? (
           <p className="muted">Starting the local AI (Ollama)…</p>
@@ -125,9 +101,9 @@ export default function AiChat({
             <p>
               <b>Getting the AI model ready.</b> It is downloaded once (about 1 GB) and reused after that.
             </p>
-            <ModelDownload model={status.recommended} onDone={onRefresh} autoStart />
+            <ModelDownload model={status.model} onDone={onRefresh} autoStart />
             <p className="muted dl-alt">
-              Or in a terminal: <code>ollama pull {status.recommended}</code>, then{' '}
+              Or in a terminal: <code>ollama pull {status.model}</code>, then{' '}
               <button className="link-btn" onClick={onRefresh} disabled={checking}>
                 {checking ? 'checking…' : 'check again'}
               </button>
@@ -140,7 +116,7 @@ export default function AiChat({
               <div className="chat-welcome">
                 <p>
                   Describe what your program should do. I'll pick the right Teamcenter operations from your API,
-                  draw the flow, and write the Java.
+                  list the steps, and write the Java.
                 </p>
                 <div className="ai-examples">
                   {EXAMPLES.map((ex) => (
@@ -149,16 +125,6 @@ export default function AiChat({
                     </button>
                   ))}
                 </div>
-                {!status.models.some((m) => m.name === status.recommended) && (
-                  <p className="ai-tip">
-                    Tip: for better results on your {status.ramGB} GB machine, run{' '}
-                    <code>ollama pull {status.recommended}</code> then{' '}
-                    <button className="link-btn" onClick={onRefresh}>
-                      refresh
-                    </button>
-                    .
-                  </p>
-                )}
               </div>
             )}
 

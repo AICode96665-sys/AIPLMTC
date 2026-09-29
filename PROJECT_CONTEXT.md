@@ -40,7 +40,7 @@ with your values filled in. Everything runs **on your PC**: the AI model runs lo
 | **Multi-stage pipeline** instead of one big prompt | A single prompt picked wrong operations (e.g. the name "Test part" pulled in *TestManagement* operations). Narrow jobs let a small model do well. |
 | **Recipe book** of built-in Teamcenter know-how | The catalog does not say *how* tasks are done (e.g. a BOM edit = open window → add → save → close). |
 | **Scored test suite with held-out tests** | To measure real accuracy honestly, not just on tuned tests. |
-| **Small, commercially licensed model** `qwen2.5-coder:1.5b` (Apache-2.0) | Best of 4 tested small models on Basic+Medium tasks (91%, ~2 s). `qwen2.5:3b` is under a *non-commercial* license and is never auto-selected. |
+| **Small, commercially licensed model** `qwen2.5-coder:1.5b` (Apache-2.0) | Best of 4 tested small models on Basic+Medium tasks (91%, ~2 s). `qwen2.5:3b` is under a *non-commercial* license, so it is not used. The app always uses this one model (no model picker). |
 | **Up to 3 steps per request** | Matches what the small model handles reliably; larger jobs can be split. |
 | **Hardened release** (sandbox, fuses, integrity check) | See §7. |
 
@@ -181,9 +181,8 @@ name/value property structs, workflow template, saved-query values) and marked
 catalog; verify them against your Teamcenter SDK.
 
 ### 5.7 Local AI engine (`ollama.ts`)
-Talks to `127.0.0.1:11434` only; structured outputs (JSON schema), temperature 0. Models
-under a non-commercial license (`qwen2.5(-coder):3b`) are flagged and never auto-selected.
-The app uses the fixed model from `edition.ts`. On every status check the app first calls `ensureOllamaRunning()` (starts the installed Ollama tray app or `ollama serve` if the server isn't answering). If the model is missing, the app starts the download automatically (the **Download AI model** component with `autoStart`); it asks Ollama to pull it (`/api/pull`, streamed progress, cancellable); only the app's own model name can be requested.
+Talks to `127.0.0.1:11434` only; structured outputs (JSON schema), temperature 0.
+The app always uses the fixed model from `edition.ts` (Apache-2.0), with no model picker. On every status check the app first calls `ensureOllamaRunning()` (starts the installed Ollama tray app or `ollama serve` if the server isn't answering). If the model is missing, the app starts the download automatically (the **Download AI model** component with `autoStart`); it asks Ollama to pull it (`/api/pull`, streamed progress, cancellable); only the app's own model name can be requested.
 
 ---
 

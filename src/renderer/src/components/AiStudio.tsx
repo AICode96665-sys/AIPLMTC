@@ -70,11 +70,6 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
     return window.tc.onAiProgress(setProgress)
   }, [refresh])
 
-  const chooseModel = useCallback(async (model: string) => {
-    await window.tc.aiSetModel(model)
-    setStatus((s) => (s ? { ...s, selected: model } : s))
-  }, [])
-
   const send = useCallback(
     async (query: string) => {
       if (busy) return
@@ -125,7 +120,6 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
         status={status}
         checking={checking}
         onRefresh={refresh}
-        onChooseModel={chooseModel}
         turns={turns}
         activeId={activeId}
         onSelect={(id) => {

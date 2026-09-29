@@ -4,17 +4,16 @@ import type { AiPlanResult } from './planner'
 export interface AiModel {
   name: string
   sizeGB: number
-  /** License forbids commercial use — never auto-picked; the UI warns. */
-  nonCommercial: boolean
 }
 
 /** What the AI panel needs to know about the local AI engine. */
 export interface AiStatus {
+  /** Ollama is answering on this PC. */
   running: boolean
-  models: AiModel[]
+  /** The app's model if it is installed, else null. */
   selected: string | null
-  ramGB: number
-  recommended: string
+  /** The model this app uses (see shared/edition.ts). */
+  model: string
 }
 
 /** A successful AI plan plus the Java generated from it in the backend. */

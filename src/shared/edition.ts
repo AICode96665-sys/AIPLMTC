@@ -1,8 +1,8 @@
 // Limits of the released app, enforced in the main process.
 
 export interface EditionLimits {
-  /** The only AI model the app uses. */
-  model: string | null
+  /** The AI model the app uses (Apache-2.0 licensed). */
+  model: string
   /** Most actions one request may have (Basic + Medium requests are 1–3). */
   maxSteps: number
   /** How deep request objects are built in the generated Java. */

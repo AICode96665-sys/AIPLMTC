@@ -41,7 +41,7 @@ Status of release 0.1.0 (checked 2026-09-29):
 | 19 | Over-limit request (more than 3 steps) | neutral "split it into smaller requests" message | ✅ |
 | 20 | Off-topic request | rejected instantly | ✅ |
 | 21 | Bad `structure.js` | error message, app keeps working | ✅ |
-| 22 | Local files contain no sensitive data | only catalog copy, catalog-meta, ai-settings (see PRIVACY.md) | ✅ |
+| 22 | Local files contain no sensitive data | only the catalog copy and catalog-meta (see PRIVACY.md) | ✅ |
 
 ## Legal & distribution
 

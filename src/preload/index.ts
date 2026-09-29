@@ -15,7 +15,6 @@ const api = {
 
   // AI assistant
   aiStatus: (): Promise<AiStatus> => ipcRenderer.invoke('ai:status'),
-  aiSetModel: (model: string): Promise<void> => ipcRenderer.invoke('ai:setModel', model),
   aiPlan: (query: string): Promise<AiBuildResult> => ipcRenderer.invoke('ai:plan', query),
   aiCancel: (): Promise<void> => ipcRenderer.invoke('ai:cancel'),
   copyText: (text: string): Promise<void> => ipcRenderer.invoke('clipboard:write', text),

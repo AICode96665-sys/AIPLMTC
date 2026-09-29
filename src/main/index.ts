@@ -1,25 +1,17 @@
 import { app, BrowserWindow, Menu, clipboard, ipcMain, dialog, session, shell } from 'electron'
 import { join, basename } from 'node:path'
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
-import { parseStructureJs, buildCatalog, type Catalog, type RawData } from '../shared'
+import { parseStructureJs, buildCatalog, type Catalog, type CatalogSummary, type LoadResult, type RawData } from '../shared'
 import { planFlow } from '../shared/ai/planner'
 import { planToJava } from '../shared/codegen/fromPlan'
 import { LIMITS } from '../shared/edition'
 import type { AiBuildResult } from '../shared/ai/status'
-import { ensureOllamaRunning, listModels, pickDefaultModel, ollamaChat, pullModel, recommendedModel, ramGB, type AiStatus } from './ollama'
+import { ensureOllamaRunning, listModels, ollamaChat, pullModel, type AiStatus } from './ollama'
 
 // Note: this app does NOT bundle or redistribute any Teamcenter catalog data.
 // Customers load their own structure.js (which they are licensed to possess).
 // On first load we COPY that file into the app's private storage so the user
 // supplies it only once — future launches open straight into the Studio.
-
-interface CatalogSummary {
-  libraries: number
-  services: number
-  operations: number
-  version: string
-  sourceLabel: string
-}
 
 interface LoadedState {
   rawData: RawData | null
@@ -125,8 +117,6 @@ function createWindow(): void {
   }
 }
 
-type LoadResult = { ok: true; summary: CatalogSummary } | { ok: false; error: string }
-
 // --- IPC ---
 
 ipcMain.handle('catalog:status', () => ({
@@ -183,28 +173,11 @@ ipcMain.handle('dialog:pickFile', async (): Promise<string | null> => {
 
 // --- AI assistant (local model via Ollama) ---
 
-const aiSettingsPath = (): string => join(app.getPath('userData'), 'ai-settings.json')
-
-function readAiModel(): string | null {
-  try {
-    return JSON.parse(readFileSync(aiSettingsPath(), 'utf8')).model ?? null
-  } catch {
-    return null
-  }
-}
-
 async function aiStatus(): Promise<AiStatus> {
   await ensureOllamaRunning() // installed but not running -> start it automatically
-  const listed = await listModels()
-  if (LIMITS.model) {
-    // this edition uses exactly one model
-    const models = listed.models.filter((m) => m.name === LIMITS.model)
-    return { running: listed.running, models, selected: models[0]?.name ?? null, ramGB: ramGB(), recommended: LIMITS.model }
-  }
-  const { running, models } = listed
-  const saved = readAiModel()
-  const selected = saved && models.some((m) => m.name === saved) ? saved : pickDefaultModel(models)
-  return { running, models, selected, ramGB: ramGB(), recommended: recommendedModel() }
+  const { running, models } = await listModels()
+  const installed = models.some((x) => x.name === LIMITS.model)
+  return { running, selected: installed ? LIMITS.model : null, model: LIMITS.model }
 }
 
 let aiAbort: AbortController | null = null
@@ -214,16 +187,11 @@ const CODEGEN_DEPTH = LIMITS.codegenDepth
 
 ipcMain.handle('ai:status', () => aiStatus())
 
-ipcMain.handle('ai:setModel', (_e, model: string) => {
-  if (LIMITS.model) return // fixed by the edition
-  writeFileSync(aiSettingsPath(), JSON.stringify({ model }), 'utf8')
-})
-
 ipcMain.handle('ai:plan', async (e, query: string): Promise<AiBuildResult> => {
   if (!state.catalog || !state.rawData) return { ok: false, error: 'Load a catalog first.', candidates: [] }
   const { running, selected } = await aiStatus()
   if (!running) return { ok: false, error: 'Ollama is not running. Start Ollama and try again.', candidates: [] }
-  if (!selected) return { ok: false, error: `No AI model installed. Run: ollama pull ${recommendedModel()}`, candidates: [] }
+  if (!selected) return { ok: false, error: `No AI model installed. Run: ollama pull ${LIMITS.model}`, candidates: [] }
   aiAbort?.abort()
   aiAbort = new AbortController()
   try {
@@ -251,7 +219,7 @@ let pullAbort: AbortController | null = null
 
 ipcMain.handle('ai:pullModel', async (e): Promise<{ ok: true } | { ok: false; error: string }> => {
   if (pullAbort) return { ok: false, error: 'A download is already running.' }
-  const model = LIMITS.model ?? recommendedModel()
+  const model = LIMITS.model
   pullAbort = new AbortController()
   try {
     await pullModel(model, (p) => e.sender.send('ai:pullProgress', p), pullAbort.signal)
