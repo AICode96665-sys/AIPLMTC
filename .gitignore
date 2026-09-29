@@ -4,3 +4,6 @@ dist/
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# readable recipe book: local only (the repo has the encrypted copy)
+recipes/recipes.json

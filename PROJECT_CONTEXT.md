@@ -77,7 +77,9 @@ src/
     edition.ts      Limits: fixed model, max steps per request, code depth
     ai/
       retrieve.ts   Catalog search (BM25 keyword ranking + Teamcenter synonyms)
-      recipes.ts    The recipe book (31 recipes) + matching + name resolution
+      recipes.ts    Recipe matching + name resolution (loads the encrypted recipe book)
+      recipeData.ts The recipe book (31 recipes), encrypted — generated, do not edit
+      recipeCrypto.ts  AES-256-GCM encrypt/decrypt for the recipe book
       planner.ts    The AI pipeline (understand → recipes/search → choose → wire)
       status.ts     Types shared by UI and main
     codegen/
@@ -155,7 +157,14 @@ The model returns JSON (enforced by a schema): `action`, `quote`, `object_type`,
 - a "type" equal to a given name is dropped (models confuse the two),
 - a type is kept only on the first step that names it.
 
-### 5.4 Recipe book (`recipes.ts`)
+### 5.4 Recipe book (`recipes.ts`, stored encrypted)
+
+The recipes are stored **encrypted** (AES-256-GCM) in `recipeData.ts`; `recipeCrypto.ts`
+holds the key and `getRecipes()` decrypts them in memory on first use. The readable copy is
+`recipes/recipes.json` (git-ignored) — `npm run recipes:decrypt` / `recipes:encrypt`. This
+keeps casual readers from browsing the recipes on GitHub or inside the app; because the key
+is in the open-source code, it is not protection against a determined developer.
+
 31 recipes (items & properties, check out/in, relations, folders & projects, BOM structure,
 where-used, saved queries, workflow / release / change, files). Each has trigger phrases,
 operation names in order, and optional setup/cleanup steps.

@@ -4,6 +4,8 @@
 // which setup/cleanup calls the action needs around it (e.g. adding a BOM line
 // needs an open BOM window, which must be saved and closed afterwards).
 //
+// The recipes themselves are stored encrypted in recipeData.ts (see recipeCrypto.ts).
+//
 // Provenance: written from general Teamcenter SOA knowledge, in our own words.
 // Recipes contain only operation NAMES and their order — no Siemens sample
 // code or documentation text. Every name is looked up in the customer's own
@@ -11,6 +13,8 @@
 // skipped and normal search takes over. Nothing from Siemens ships in the app.
 
 import type { Catalog, Operation } from '../types'
+import { decryptText } from './recipeCrypto'
+import { RECIPE_DATA } from './recipeData'
 
 export interface Recipe {
   id: string
@@ -26,7 +30,13 @@ export interface Recipe {
   after?: string[]
 }
 
-export const RECIPES: Recipe[] = [] // recipe book removed from history; it is kept encrypted (recipeData.ts)
+/** The recipe book, decrypted in memory on first use. The readable copy lives in
+ *  recipes/recipes.json (local only); see recipeCrypto.ts for how to edit it. */
+let recipes: Recipe[] | null = null
+export function getRecipes(): Recipe[] {
+  if (!recipes) recipes = JSON.parse(decryptText(RECIPE_DATA)) as Recipe[]
+  return recipes
+}
 
 // ---------- matching ----------
 
@@ -48,7 +58,7 @@ export function matchRecipe(action: string): Recipe | null {
   const words = wordsOf(action)
   const have = new Set(words)
   let best: { recipe: Recipe; covered: number; len: number; first: number } | null = null
-  for (const recipe of RECIPES) {
+  for (const recipe of getRecipes()) {
     const covered = new Set<string>()
     let len = 0
     for (const phrase of recipe.triggers) {

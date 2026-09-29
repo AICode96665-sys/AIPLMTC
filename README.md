@@ -144,6 +144,20 @@ src/
 eval/          AI test suite (80 requests) and recipe checks
 ```
 
+### Editing the recipe book
+
+The recipe book ships **encrypted** (`src/shared/ai/recipeData.ts`); the app decrypts it in
+memory. To edit it:
+
+```bash
+npm run recipes:decrypt    # creates recipes/recipes.json (readable, git-ignored)
+# ...edit recipes/recipes.json...
+npm run recipes:encrypt    # writes the encrypted src/shared/ai/recipeData.ts
+npm run check:recipes      # make sure matching still works
+```
+
+Commit only `recipeData.ts`; `recipes/recipes.json` stays on your PC.
+
 Contributions are welcome: please run `npm run typecheck` and `npm run check:recipes`
 before opening a pull request, and write recipes and tests in your own words (never copy
 Siemens documentation or sample code).

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The recipe book is now stored encrypted (AES-256-GCM) and decrypted in memory by the
+  app; edit it via `npm run recipes:decrypt` / `recipes:encrypt`.
+
 ## v0.1.1 (2026-09-29)
 
 Easier setup: the app now gets its AI ready by itself.
