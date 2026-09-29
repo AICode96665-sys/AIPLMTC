@@ -1,18 +1,23 @@
 # Changelog
 
-## Unreleased
+## v0.1.1 (2026-09-29)
+
+Easier setup: the app now gets its AI ready by itself.
 
 - **Automatic setup:** the app starts Ollama if it is installed but not running, and
   downloads the AI model automatically when it is missing (progress bar + Cancel).
   `start.bat` downloads the model without asking and installs Ollama after a 10-second
   countdown (press N to skip).
-- `start.bat`: if Ollama is not installed, offers to install it (`winget install Ollama.Ollama`,
-  or opens ollama.com); if Ollama is installed but not running, starts it automatically.
 - **Download AI model** button in the app: asks the local Ollama to download the model
   (about 1 GB, once) with a progress bar and Cancel; no terminal command needed.
 - Install method 2: `start.bat` — clone (or download the ZIP), then double-click to check
   Node.js and Ollama, install components, and start the app.
 - `npm install` now always downloads Electron (some npm versions skip its install step).
+
+**Download:** `TC SOA Studio Setup 0.1.1.exe`
+SHA-256: `9BEFEB2F8CBC2C98102BE85BB30CA851AEBF85A43B3944DA10A5C858FCAA29DA`
+
+*Works with Siemens Teamcenter. Not affiliated with or endorsed by Siemens.*
 
 ## v0.1.0 — first public release (2026-09-29)
 
