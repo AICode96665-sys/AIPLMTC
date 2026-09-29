@@ -39,26 +39,67 @@ Teamcenter is a trademark of Siemens.*
 
 ## Install
 
-### Option A — installer (no developer tools needed)
+There are two ways to install. Both need **Ollama** and your **catalog file** (see
+[What you need](#what-you-need) above).
 
-Download `TC SOA Studio Setup <version>.exe` from the
-[Releases](https://github.com/AICode96665-sys/AIPLM/releases) page and run it.
+### Method 1 — Installer (easiest)
 
-> **Note:** the installer is **not code-signed yet**. Windows SmartScreen may warn (click
-> **More info → Run anyway**), and on Windows 11 PCs with **Smart App Control** turned on,
-> Windows blocks unsigned apps completely. In that case use Option B until signed releases
-> are available.
+1. Open the [**Releases**](https://github.com/AICode96665-sys/AIPLM/releases) page.
+2. Under the latest release, download **`TC SOA Studio Setup <version>.exe`**.
+3. Double-click it and follow the steps (you can choose the install folder).
+4. Start **TC SOA Studio** from the desktop or Start menu shortcut.
 
-### Option B — from source
+> **Note:** the installer is **not code-signed yet**. Windows SmartScreen may warn: click
+> **More info → Run anyway**. On Windows 11 PCs with **Smart App Control** turned on,
+> Windows blocks unsigned apps completely. In that case use **Method 2**.
 
-Requires [Node.js](https://nodejs.org) 20 or newer.
+### Method 2 — Clone (or download) and run `start.bat`
+
+Needs **[Node.js](https://nodejs.org) 22 LTS** (or 20.19 or newer). Install it once; the
+defaults are fine.
+
+1. **Get the code**, either way:
+   - with Git:
+     ```bash
+     git clone https://github.com/AICode96665-sys/AIPLM.git
+     ```
+   - or without Git: on this page click **Code → Download ZIP**, then right-click the ZIP →
+     **Extract All…**
+2. **Open the folder** `AIPLM` (for the ZIP: `AIPLM-main`) in File Explorer.
+3. **Double-click `start.bat`.**
+
+`start.bat` does everything for you:
+
+| Step | What it does |
+|---|---|
+| 1 | Checks that Node.js is installed and new enough |
+| 2 | Checks Ollama, and offers to download the AI model if it's missing (about 1 GB) |
+| 3 | First run only: installs the app's components (a few minutes) and Electron |
+| 4 | Builds the app and opens **TC SOA Studio** |
+
+Next time, just double-click `start.bat` again; it starts in seconds. Keep the black window
+open while you use the app (closing it closes the app).
+
+> **ZIP download:** Windows marks files from the internet, so it may ask before running
+> `start.bat`. Click **More info → Run anyway** (or right-click the ZIP → **Properties** →
+> tick **Unblock** before extracting). The `git clone` way doesn't have this prompt.
+
+<details>
+<summary>Developers: the same from a terminal</summary>
 
 ```bash
 git clone https://github.com/AICode96665-sys/AIPLM.git
 cd AIPLM
 npm install
-npm run dev
+npm start        # build and run (production mode)
+npm run dev      # or: development mode with hot reload and DevTools
 ```
+</details>
+
+## Update
+
+- **Method 1:** download and run the newer installer from the Releases page.
+- **Method 2:** `git pull` in the folder (or download the ZIP again), then run `start.bat`.
 
 ## Use
 

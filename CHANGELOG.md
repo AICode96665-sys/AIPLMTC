@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Install method 2: `start.bat` — clone (or download the ZIP), then double-click to check
+  Node.js and Ollama, install components, and start the app.
+- `npm install` now always downloads Electron (some npm versions skip its install step).
+
 ## v0.1.0 — first public release (2026-09-29)
 
 Describe your Teamcenter SOA program in plain English and get the Java — with a local AI
