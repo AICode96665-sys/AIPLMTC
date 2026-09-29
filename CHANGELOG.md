@@ -1,9 +1,18 @@
 # Changelog
 
-## Unreleased
+## v0.1.2 (2026-09-29)
+
+Recipe book protection and cleanup. Same features as v0.1.1.
 
 - The recipe book is now stored encrypted (AES-256-GCM) and decrypted in memory by the
-  app; edit it via `npm run recipes:decrypt` / `recipes:encrypt`.
+  app, so it is not readable on GitHub or inside the installed app.
+- Removed unused code (model picker, old screens' styles, duplicate types); smaller and
+  simpler, with no change in behaviour.
+
+**Download:** `TC SOA Studio Setup 0.1.2.exe`
+SHA-256: `58D4C29E9A5FDBE1F5B50154705A9114BC1A67110358A29F7C6CEC47881950DE`
+
+*Works with Siemens Teamcenter. Not affiliated with or endorsed by Siemens.*
 
 ## v0.1.1 (2026-09-29)
 
