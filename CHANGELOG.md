@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `start.bat`: if Ollama is not installed, offers to install it (`winget install Ollama.Ollama`,
+  or opens ollama.com); if Ollama is installed but not running, starts it automatically.
 - **Download AI model** button in the app: asks the local Ollama to download the model
   (about 1 GB, once) with a progress bar and Cancel; no terminal command needed.
 - Install method 2: `start.bat` — clone (or download the ZIP), then double-click to check

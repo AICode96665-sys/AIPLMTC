@@ -71,9 +71,11 @@ defaults are fine.
 | Step | What it does |
 |---|---|
 | 1 | Checks that Node.js is installed and new enough |
-| 2 | Checks Ollama, and offers to download the AI model if it's missing (about 1 GB) |
-| 3 | First run only: installs the app's components (a few minutes) and Electron |
-| 4 | Builds the app and opens **TC SOA Studio** |
+| 2 | **Ollama not installed?** Asks *"Install Ollama now?"*. **Y** installs it with Windows' `winget` (or opens ollama.com if winget isn't available); **N** continues, and the app shows setup help |
+| 3 | **Ollama installed but not running?** Starts it automatically |
+| 4 | **AI model missing?** Asks *"Download it now?"* (about 1 GB, once). **N** is fine: the app has a **Download AI model** button |
+| 5 | First run only: installs the app's components (a few minutes) and Electron |
+| 6 | Builds the app and opens **TC SOA Studio** |
 
 Next time, just double-click `start.bat` again; it starts in seconds. Keep the black window
 open while you use the app (closing it closes the app).
