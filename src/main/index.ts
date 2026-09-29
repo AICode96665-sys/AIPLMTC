@@ -6,7 +6,7 @@ import { planFlow } from '../shared/ai/planner'
 import { planToJava } from '../shared/codegen/fromPlan'
 import { LIMITS } from '../shared/edition'
 import type { AiBuildResult } from '../shared/ai/status'
-import { listModels, pickDefaultModel, ollamaChat, recommendedModel, ramGB, type AiStatus } from './ollama'
+import { listModels, pickDefaultModel, ollamaChat, pullModel, recommendedModel, ramGB, type AiStatus } from './ollama'
 
 // Note: this app does NOT bundle or redistribute any Teamcenter catalog data.
 // Customers load their own structure.js (which they are licensed to possess).
@@ -242,6 +242,27 @@ ipcMain.handle('ai:plan', async (e, query: string): Promise<AiBuildResult> => {
 })
 
 ipcMain.handle('ai:cancel', () => aiAbort?.abort())
+
+// --- Download the app's AI model through Ollama ("Download AI model" button) ---
+// Only the app's own model can be downloaded; the UI cannot ask for another name.
+
+let pullAbort: AbortController | null = null
+
+ipcMain.handle('ai:pullModel', async (e): Promise<{ ok: true } | { ok: false; error: string }> => {
+  if (pullAbort) return { ok: false, error: 'A download is already running.' }
+  const model = LIMITS.model ?? recommendedModel()
+  pullAbort = new AbortController()
+  try {
+    await pullModel(model, (p) => e.sender.send('ai:pullProgress', p), pullAbort.signal)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  } finally {
+    pullAbort = null
+  }
+})
+
+ipcMain.handle('ai:cancelPull', () => pullAbort?.abort())
 
 /** Copy buttons: write text to the system clipboard (text only, size-capped). */
 ipcMain.handle('clipboard:write', (_e, text: unknown) => {

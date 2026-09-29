@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { AiBuildResult, AiStatus } from '@shared/ai/status'
 import type { Operation } from '@shared/index'
 import { LIMITS } from '@shared/edition'
+import ModelDownload from './ModelDownload'
 
 export interface Turn {
   id: number
@@ -107,11 +108,13 @@ export default function AiChat({
             </p>
             <ol>
               <li>
-                Install Ollama from <b>ollama.com</b> and start it.
+                Install Ollama from{' '}
+                <a href="https://ollama.com" target="_blank" rel="noreferrer">
+                  ollama.com
+                </a>{' '}
+                and start it.
               </li>
-              <li>
-                In a terminal, run: <code>ollama pull {status?.recommended ?? 'qwen2.5-coder:7b'}</code>
-              </li>
+              <li>Click Check again. The app then offers to download its AI model (about 1 GB) for you.</li>
             </ol>
             <button className="btn-primary" onClick={onRefresh} disabled={checking}>
               {checking ? 'Checking…' : 'Check again'}
@@ -120,15 +123,16 @@ export default function AiChat({
         ) : !status.selected ? (
           <div className="chat-setup">
             <p>
-              <b>Ollama is running, but no AI model is installed.</b> For your computer ({status.ramGB} GB RAM), in a
-              terminal run:
+              <b>Ollama is running, but the AI model is not installed yet.</b>
             </p>
-            <p>
-              <code>ollama pull {status.recommended}</code>
+            <ModelDownload model={status.recommended} onDone={onRefresh} />
+            <p className="muted dl-alt">
+              Or in a terminal: <code>ollama pull {status.recommended}</code>, then{' '}
+              <button className="link-btn" onClick={onRefresh} disabled={checking}>
+                {checking ? 'checking…' : 'check again'}
+              </button>
+              .
             </p>
-            <button className="btn-primary" onClick={onRefresh} disabled={checking}>
-              {checking ? 'Checking…' : 'Check again'}
-            </button>
           </div>
         ) : (
           <>

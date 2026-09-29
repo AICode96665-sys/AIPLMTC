@@ -27,11 +27,9 @@ Teamcenter is a trademark of Siemens.*
 ## What you need
 
 1. **Windows 10/11** (8 GB RAM is enough).
-2. **Ollama**: install from [ollama.com](https://ollama.com), then download the AI model
-   (about 1 GB) once:
-   ```bash
-   ollama pull qwen2.5-coder:1.5b
-   ```
+2. **Ollama**: install from [ollama.com](https://ollama.com). The AI model (about 1 GB)
+   is downloaded once: the app shows a **Download AI model** button with progress, or run
+   `ollama pull qwen2.5-coder:1.5b` yourself.
 3. **Your Teamcenter API catalog (`structure.js`)**: the data file behind the Teamcenter
    Services API reference that comes with your Teamcenter documentation. You must be licensed
    to use it; the app does **not** include any Siemens data. See [FINDINGS.md](FINDINGS.md)

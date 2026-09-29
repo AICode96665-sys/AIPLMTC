@@ -22,8 +22,11 @@ telemetry and no cloud AI. The AI model runs locally through Ollama on the same 
 | `http://127.0.0.1:11434` (Ollama, local) | Run the AI model | The user's request text and the relevant catalog operation names/descriptions |
 | *(none other)* | — | — |
 
-The app makes **no internet connections**. Downloading the AI model
-(`ollama pull qwen2.5-coder:1.5b`) is done by the user in Ollama, not by this app.
+The app itself makes **no internet connections**. The AI model is downloaded **once** by
+Ollama from its model library, only when the user asks for it: either with the
+**Download AI model** button (the app asks the local Ollama to fetch
+`qwen2.5-coder:1.5b` and shows progress) or with `ollama pull qwen2.5-coder:1.5b`.
+That download sends no user data, only a request for the public model files.
 
 ## Files the app writes
 

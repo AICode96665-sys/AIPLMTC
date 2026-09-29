@@ -183,7 +183,7 @@ catalog; verify them against your Teamcenter SDK.
 ### 5.7 Local AI engine (`ollama.ts`)
 Talks to `127.0.0.1:11434` only; structured outputs (JSON schema), temperature 0. Models
 under a non-commercial license (`qwen2.5(-coder):3b`) are flagged and never auto-selected.
-The app uses the fixed model from `edition.ts`.
+The app uses the fixed model from `edition.ts`. If it is missing, the **Download AI model** button asks Ollama to pull it (`/api/pull`, streamed progress, cancellable); only the app's own model name can be requested.
 
 ---
 

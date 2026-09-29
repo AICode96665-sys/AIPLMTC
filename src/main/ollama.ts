@@ -109,3 +109,60 @@ export function ollamaChat(model: string, signal?: AbortSignal): ChatFn {
 export function ramGB(): number {
   return Math.round(totalmem() / 1024 ** 3)
 }
+
+export interface PullProgress {
+  /** Ollama's status text, e.g. "pulling manifest", "verifying sha256 digest", "success". */
+  status: string
+  /** Bytes done / total for the current layer (only while downloading). */
+  completed?: number
+  total?: number
+}
+
+/** Download a model through the local Ollama (it fetches from its own library).
+ *  Streams progress to `onProgress`; resolves when Ollama reports success. */
+export async function pullModel(
+  model: string,
+  onProgress: (p: PullProgress) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  let r: Response
+  try {
+    r = await fetch(`${OLLAMA_URL}/api/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, stream: true }),
+      signal
+    })
+  } catch (err) {
+    if (signal?.aborted) throw new Error('Download cancelled.')
+    throw new Error(`Could not reach Ollama — is it running? (${String(err)})`)
+  }
+  if (!r.ok || !r.body) throw new Error(`Ollama error ${r.status}: ${(await r.text().catch(() => '')).slice(0, 300)}`)
+
+  // newline-delimited JSON: one progress object per line
+  const reader = r.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let done = false
+  try {
+    while (!done) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      buffer += decoder.decode(chunk.value, { stream: true })
+      let nl: number
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl).trim()
+        buffer = buffer.slice(nl + 1)
+        if (!line) continue
+        const msg = JSON.parse(line) as PullProgress & { error?: string }
+        if (msg.error) throw new Error(`Download failed: ${msg.error}`)
+        onProgress({ status: msg.status, completed: msg.completed, total: msg.total })
+        if (msg.status === 'success') done = true
+      }
+    }
+  } catch (err) {
+    if (signal?.aborted) throw new Error('Download cancelled.')
+    throw err
+  }
+  if (!done) throw new Error('Download ended before it finished. Please try again.')
+}

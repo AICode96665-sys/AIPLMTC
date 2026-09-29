@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Download AI model** button in the app: asks the local Ollama to download the model
+  (about 1 GB, once) with a progress bar and Cancel; no terminal command needed.
 - Install method 2: `start.bat` — clone (or download the ZIP), then double-click to check
   Node.js and Ollama, install components, and start the app.
 - `npm install` now always downloads Electron (some npm versions skip its install step).
