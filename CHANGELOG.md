@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `start.bat` now sets up everything by itself: installs Node.js LTS (winget) if it is
+  missing or too old, installs Ollama without a countdown, checks free disk space (4 GB),
+  shows numbered steps, and explains what to do when run from inside a ZIP.
+
 ## v0.1.2 (2026-09-29)
 
 Recipe book protection and cleanup. Same features as v0.1.1.
