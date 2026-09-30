@@ -378,6 +378,42 @@ const CONTINUE_OPENERS = ['then', 'now', 'also', 'next', 'and', 'after that', 'a
 const PRONOUNS = new Set(['it', 'its', 'them', 'their', 'they'])
 /** Words that point at an object when followed by one ("THIS object", "THAT dataset"). */
 const DEMONSTRATIVES = new Set(['this', 'that', 'these', 'those', 'same'])
+/** Words for the answer itself ("add … to THIS CODE", "change this flow"). */
+const FLOW_WORDS = new Set(['code', 'flow', 'program', 'java', 'step', 'answer'])
+/** Polite words in front of a request ("please …"), skipped when reading it. */
+const POLITE = /^((please|pls|kindly|can you|could you|now please)[\s,]+)+/
+
+const normText = (query: string): string => query.toLowerCase().replace(/\s+/g, ' ').trim().replace(POLITE, '')
+const wordsOfText = (text: string): string[] => text.split(/[^a-z0-9]+/).filter(Boolean)
+
+/** Words that place new steps in the flow ("… at the start", "… at the end"). */
+const PLACE_WORDS = /\b(at|to) the (start|beginning|end|top)\b|\bin the beginning\b/
+/** Words that ask for a step the flow already has ("check it out AGAIN"). */
+const REPEAT_WORDS = /\b(again|another|second|twice|one more)\b/
+
+/** The text without a leading "before …," / "after …," anchor clause. */
+const withoutAnchor = (text: string): string => text.replace(/^\s*(after|before)\s+[^,]*,\s*/i, '')
+
+/** "after check out, …" / "before check in, …": the step of `steps` the request is
+ *  anchored to, if it names one (by its action words or its operation name). */
+function anchorStep(text: string, steps: PlanStep[]): { where: 'before' | 'after'; index: number } | null {
+  const m = text.match(/^(after|before)\s+(?:the\s+)?(.*?)(?:,|\band\b|\bthen\b|$)/)
+  if (!m) return null
+  // word stems, so "creating" / "created" meet "create" and "checked" meets "check"
+  const stem = (w: string): string => singular(w).replace(/(ing|ed|e)$/, '')
+  const clause = wordsOfText(m[2]).map(stem)
+  if (clause.length === 0) return null
+  const joined = wordsOfText(m[2]).map(singular).join('')
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const s = steps[i]
+    if (s.choice.by === 'setup' || s.choice.by === 'cleanup') continue
+    const action = wordsOfText(s.action.toLowerCase()).map(stem)
+    const op = s.url.split('/').pop()!.toLowerCase()
+    if ((action.length && action.every((w) => clause.includes(w))) || joined === op || nearlyEqual(joined, op))
+      return { where: m[1] as 'before' | 'after', index: i }
+  }
+  return null
+}
 /** Teamcenter object words (singular). */
 const OBJECT_WORDS = new Set(
   ('item part object dataset file document drawing revision rev bom structure assembly line window folder ' +
@@ -390,6 +426,24 @@ const singular = (w: string): string => {
   return OBJECT_WORDS.has(s) ? s : ([...OBJECT_WORDS].find((o) => nearlyEqual(s, o)) ?? s)
 }
 
+/** Where a follow-up's new steps go in the earlier flow (an index into `earlier`):
+ *  - "after X" / "before X" naming a step of the flow → right after / before that step;
+ *  - "at the start", "at the beginning", "before everything" → first;
+ *  - "then …", "next …", "at the end" … → last;
+ *  - otherwise last, except that creating something goes first when the flow doesn't start
+ *    with a create ("add the create item code to this code" → create, check out, …). */
+function insertAt(query: string, fresh: PlanStep[], earlier: PlanStep[], byUrl: Map<string, Operation>): number {
+  const text = normText(query)
+  const anchor = anchorStep(text, earlier)
+  if (anchor) return anchor.where === 'after' ? anchor.index + 1 : anchor.index
+  if (/\b(at|to) the (start|beginning|top)\b|\bin the beginning\b|\bbefore (it|this|that|them|everything|all)\b/.test(text)) return 0
+  if (/\bat the end\b/.test(text) || CONTINUE_OPENERS.some((w) => text.startsWith(w + ' ') || text.startsWith(w + ',')))
+    return earlier.length
+  const creates = (s: PlanStep | undefined): boolean => !!s && /^(create|saveAs)/i.test(byUrl.get(s.url)?.name ?? '')
+  const first = earlier.find((s) => s.choice.by !== 'setup')
+  return creates(fresh[0]) && first && !creates(first) ? 0 : earlier.length
+}
+
 /** Does this request continue the flow on screen? Plain code, no AI. It does if it opens
  *  with a continuation word ("then …", "now …"), or if it points at an object it never
  *  names itself:
@@ -397,16 +451,25 @@ const singular = (w: string): string => {
  *    ("check it in" continues; "Revise the item and set its description" doesn't);
  *  - "this / that / these / those / the same" + an object word not mentioned earlier
  *    ("check out this object" continues; "saved queries that are available" doesn't).
- *  Names and IDs count as named objects ("Revise Frame, open its BOM", "item 000321"). */
-export function isFollowUp(query: string): boolean {
-  const text = query.toLowerCase().replace(/\s+/g, ' ').trim()
+ *  Names and IDs count as named objects ("Revise Frame, open its BOM", "item 000321").
+ *  Also: "this code / this flow" ("add the create item code to this code"), and, when the
+ *  flow is known, "after … / before …" naming one of its steps ("after check out, set …";
+ *  but "Before deleting the old dataset, …" starts a new flow if there is no delete step).
+ *  A leading "please" is ignored. */
+export function isFollowUp(query: string, steps: PlanStep[] = []): boolean {
+  const text = normText(query)
   if (CONTINUE_OPENERS.some((w) => text.startsWith(w + ' ') || text.startsWith(w + ','))) return true
-  const raw = query.split(/[^A-Za-z0-9-]+/).filter(Boolean)
+  if (anchorStep(text, steps)) return true
+  if (PLACE_WORDS.test(text)) return true // "… at the start", "… at the end": of the flow
+  // original capitals kept, to spot names ("Revise Frame, …")
+  const cased = query.replace(/\s+/g, ' ').trim().replace(new RegExp(POLITE.source, 'i'), '')
+  const raw = cased.split(/[^A-Za-z0-9-]+/).filter(Boolean)
   const named = new Set<string>() // object words and names seen so far
   for (let i = 0; i < raw.length; i++) {
     const w = raw[i].toLowerCase()
     const next = singular((raw[i + 1] ?? '').toLowerCase())
     if (PRONOUNS.has(w) && named.size === 0) return true
+    if (DEMONSTRATIVES.has(w) && FLOW_WORDS.has(next)) return true
     if (DEMONSTRATIVES.has(w) && OBJECT_WORDS.has(next) && !named.has(next)) return true
     const s = singular(w)
     const isName = i > 0 && (/\d/.test(raw[i]) || /-/.test(raw[i]) || /^[A-Z]/.test(raw[i]))
@@ -472,18 +535,7 @@ export async function planFlow(
       candidates: []
     }
   }
-  const base = opts.base && isFollowUp(query) ? opts.base : undefined
-  if (base && opts.maxTotalSteps && askedSteps(base.steps) + actions.length > opts.maxTotalSteps) {
-    const had = askedSteps(base.steps)
-    return {
-      ok: false,
-      error:
-        `Adding ${actions.length} step${actions.length === 1 ? '' : 's'} would give your flow ${had + actions.length} steps; ` +
-        `one flow can have up to ${opts.maxTotalSteps}. Start a new flow for the next part of the job ` +
-        '(describe it without "this" or "it", e.g. "Check out an item").',
-      candidates: []
-    }
-  }
+  const base = opts.base && isFollowUp(query, opts.base.steps) ? opts.base : undefined
   if (actions.length === 0) {
     return { ok: false, error: 'The AI could not work out the steps in that request. Try describing each step plainly.', candidates: [] }
   }
@@ -502,7 +554,9 @@ export async function planFlow(
     // the same file name on two steps.)
     values.properties = values.properties.filter((p) => !seenValues.has(p.value.toLowerCase()))
     values.properties.forEach((p) => seenValues.add(p.value.toLowerCase()))
-    const found = recipeFor(query, a.quote ?? '', action)
+    // "before check out, set its name …": the anchor names WHERE, not what, so its words
+    // must not pick the recipe (else "set properties" would become another check-out)
+    const found = recipeFor(query, withoutAnchor(a.quote ?? ''), action)
     const recipe = found?.recipe
     const recipeOps = recipe ? recipe.steps.map((spec) => resolveOp(catalog, spec)).filter((o): o is Operation => !!o) : []
     const { ops, ranked } = rankedSearch(catalog, action)
@@ -583,15 +637,11 @@ export async function planFlow(
   // Build steps; merge an action into the previous step if it chose the same operation.
   progress(STAGES.assemble.doing)
   const byUrl = new Map(catalog.operations.map((o) => [o.url, o]))
-  // A follow-up continues the earlier flow: its steps come first (except cleanup such as
-  // "close BOM window", which must stay last), then the new steps, then the cleanup.
-  const earlier = (base?.steps ?? []).map((s) => ({ ...s, earlier: true }))
-  const earlierCleanup = earlier.filter((s) => s.choice.by === 'cleanup')
-  const steps: PlanStep[] = earlier.filter((s) => s.choice.by !== 'cleanup')
+  const fresh: PlanStep[] = [] // this request's steps
   const recipeOf = new Map<PlanStep, Recipe>()
   options.forEach((o, i) => {
-    const prev = steps[steps.length - 1]
-    if (prev && !prev.earlier && prev.url === chosen[i]) {
+    const prev = fresh[fresh.length - 1]
+    if (prev && prev.url === chosen[i]) {
       prev.action += ` + ${o.action}`
       prev.values = {
         objectType: prev.values.objectType || o.values.objectType,
@@ -609,9 +659,56 @@ export async function planFlow(
       choice: { by: chosenBy[i], matched: o.matched, options: o.ranked }
     }
     if (o.recipe) recipeOf.set(step, o.recipe)
-    steps.push(step)
+    fresh.push(step)
   })
+
+  // A follow-up continues the earlier flow. Its cleanup (e.g. "close BOM window") is taken
+  // out and put back at the very end; the new steps go where the request says (section
+  // "placement" below), and a step that only names the anchor ("AFTER CHECK OUT, set …")
+  // is not added again.
+  const earlier = (base?.steps ?? []).map((s) => ({ ...s, earlier: true }))
+  const earlierCleanup = earlier.filter((s) => s.choice.by === 'cleanup')
+  const earlierMain = earlier.filter((s) => s.choice.by !== 'cleanup')
+  const at = base ? insertAt(query, fresh, earlierMain, byUrl) : 0
+  const dropRestated = (s: PlanStep | undefined): void => {
+    if (s) recipeOf.delete(s)
+  }
+  while (fresh.length && earlierMain[at - 1] && fresh[0].url === earlierMain[at - 1].url) dropRestated(fresh.shift())
+  while (fresh.length && earlierMain[at] && fresh[fresh.length - 1].url === earlierMain[at].url) dropRestated(fresh.pop())
+  // Asking to add what the flow already has ("add the create item code" when it starts with
+  // create item) is answered, not added twice, unless the words ask for it ("… again").
+  const already = fresh.filter((s) => earlierMain.some((e) => e.url === s.url))
+  if (base && (fresh.length === 0 || (already.length === fresh.length && !REPEAT_WORDS.test(normText(query))))) {
+    const where = fresh.map((s) => {
+      const n = earlierMain.findIndex((e) => e.url === s.url)
+      const name = byUrl.get(s.url)?.name ?? s.url
+      return `"${earlierMain[n].action.replace(/ \(.*\)$/, '')}" (${name}) is already step ${n + 1} of your flow`
+    })
+    return {
+      ok: false,
+      error: where.length
+        ? `${where.join('; ')}. To add it once more, say so (e.g. "… again").`
+        : 'Those steps are already in your flow.',
+      candidates
+    }
+  }
+  if (base && opts.maxTotalSteps && askedSteps(earlierMain) + askedSteps(fresh) > opts.maxTotalSteps) {
+    const had = askedSteps(earlierMain)
+    const add = askedSteps(fresh)
+    return {
+      ok: false,
+      error:
+        `Adding ${add} step${add === 1 ? '' : 's'} would give your flow ${had + add} steps; ` +
+        `one flow can have up to ${opts.maxTotalSteps}. Start a new flow for the next part of the job ` +
+        '(describe it without "this" or "it", e.g. "Check out an item").',
+      candidates: []
+    }
+  }
+  const steps: PlanStep[] = [...earlierMain.slice(0, at), ...fresh, ...earlierMain.slice(at)]
   addSetupAndCleanup(steps, recipeOf, catalog, notes)
+  // a setup step the flow already has earlier (e.g. an open BOM window) isn't needed twice
+  for (let i = steps.length - 1; i > 0; i--)
+    if (steps[i].choice.by === 'setup' && steps.slice(0, i).some((s) => s.url === steps[i].url)) steps.splice(i, 1)
   const lastWork = steps.reduce((last, s, i) => (s.choice.by === 'cleanup' ? last : i), -1)
   for (const c of earlierCleanup) if (!steps.slice(lastWork + 1).some((s) => s.url === c.url)) steps.push(c)
   steps.forEach((st, i) => (st.id = `s${i + 1}`))

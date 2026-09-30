@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Chat answers show only the steps (no "Here is the flow" heading or "Show this flow" line).
+- Follow-ups understand more: "after X, …" / "before X, …" (placed right after/before step X),
+  "at the start/end", "this code / this flow", and a leading "please". Creating something
+  goes first when added to a flow that doesn't start with a create. A step that only names
+  where to continue isn't added again, and asking for a step the flow already has is
+  answered ("… is already step 1") instead of adding it twice.
 - Fixed: a job described twice ("find the saved query, run it") used its recipe twice;
   the flow now finds and runs the query once.
 - Fixed: query results could be wired into another step's search criteria; a generic object

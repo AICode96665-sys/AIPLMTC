@@ -158,15 +158,8 @@ export default function AiChat({
                   <div
                     className={`msg-ai ok ${t.id === activeId ? 'active' : ''}`}
                     onClick={() => onSelect(t.id)}
-                    title="Show this flow and its code"
+                    title="Show the code for this answer"
                   >
-                    {t.result.plan.steps.some((s) => s.earlier) ? (
-                      <p>
-                        Added to your flow; it now has {t.result.plan.steps.length} steps (earlier ones in grey):
-                      </p>
-                    ) : (
-                      <p>Here is the flow ({t.result.plan.steps.length} steps):</p>
-                    )}
                     <ol className="msg-steps">
                       {t.result.plan.steps.map((s) => {
                         const op = byUrl.get(s.url)
@@ -223,7 +216,6 @@ export default function AiChat({
                         Not a follow-up? Make this a separate flow
                       </button>
                     )}
-                    {t.id !== activeId && <div className="msg-show">Show this flow →</div>}
                   </div>
                 )}
               </div>

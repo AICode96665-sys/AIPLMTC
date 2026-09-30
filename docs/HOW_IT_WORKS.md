@@ -686,10 +686,16 @@ A request can continue the flow of the answer on screen:
 1. The window sends the new request plus the `planId` of the answer on screen (the newest
    answer, or an older one the user clicked). It sends only the id, never a plan; the main
    process looks up its own copy.
-2. **`isFollowUp(query)`** (`planner.ts`, plain code, no AI) decides whether the request
-   continues that flow. It does if:
+2. **`isFollowUp(query, steps)`** (`planner.ts`, plain code, no AI) decides whether the
+   request continues that flow. A leading *please / kindly / can you* is ignored. It does if:
    - it **opens with a continuation word**: *then, now, also, next, and, after that,
      afterwards, finally* ("then check it in"); or
+   - it **opens with "after X" / "before X" where X is a step of the flow** ("after check out,
+     set …"; word forms like "creating" match "create item"). *"Before deleting the old dataset,
+     …"* is still a new flow when the flow has no delete step; or
+   - it says **where in the flow**: *at the start, at the beginning, at the end*; or
+   - it points at **the answer itself**: *this code, this flow, this program* ("please add the
+     create item code to this code"); or
    - it **points at an object it never names itself**:
      - *it / its / them / their / they* with no object named before it in the request
        ("check it in" → follow-up; "Revise the item and set its description" → new flow);
@@ -702,9 +708,20 @@ A request can continue the flow of the answer on screen:
      Frame, open its BOM", "item 000321").
 
    Anything else starts a **new flow**, even while an answer is on screen.
-3. The new request goes through the normal pipeline (the 3-steps-per-request limit still applies).
-   Then the flows are joined: **earlier steps first** (marked `earlier`), then the new steps.
-   **Cleanup steps** of the earlier flow (e.g. save/close BOM window) **move to the very end**,
+3. The new request goes through the normal pipeline (the 3-steps-per-request limit still
+   applies; the "after X," part is left out when matching recipes, since it names *where*, not
+   *what*). Then the new steps are placed (`insertAt`):
+   - "after X" / "before X" → right after / before that step;
+   - *at the start / at the beginning* → first; *then, next, at the end…* → last;
+   - otherwise last, **except that creating something goes first** when the flow doesn't
+     start with a create ("add the create item code to this code" on *check out → set
+     properties → check in* gives *create item → check out → set properties → check in*).
+
+   A new step that only **restates the anchor** ("*after check out* and set the properties…"
+   when check out is already the step before) is not added again. If everything asked for is
+   **already in the flow**, the answer says so ("\"create item\" (createItems) is already step 1
+   of your flow") instead of adding it twice, unless the words ask for it (*again, another,
+   second, twice, one more*). Earlier steps are marked `earlier`. **Cleanup steps** of the earlier flow (e.g. save/close BOM window) **move to the very end**,
    so a new BOM step still works inside the open window. Setup isn't repeated if it's already
    in the flow. The whole flow is **wired again** and one Java program is written.
 4. **Total cap: 6 steps per flow** (`LIMITS.maxFlowSteps`), counting the steps the user asked
@@ -719,10 +736,15 @@ Real conversations (qwen2.5-coder:1.5b):
 | *Create an item named Bracket* → *then set its description to Released for build* → *now check it in* | `createItems → setProperties → checkin`; "Bracket" and "Released for build" both in the Java |
 | *Add a child line to the BOM* → *then remove the child line* | `createBOMWindows → addOrUpdateChildren… → removeChildren… → saveBOMWindows → closeBOMWindows` |
 | *Revise an item* → *Delete a dataset* | two separate flows |
+| *create a item* → *check out this object* → *after check out and set the properties and do check in* → *please add the create item code to this code* | `createItems` → `+ checkout` → `+ setProperties → checkin` → "create item is already step 1" |
+| *Check out an object, change a property, then check it in* → *please add the create item code to this code* | `createItems → checkout → setProperties → checkin` (create goes first) |
+| *Create an item then check it out* → *before check out, set its name to Bracket* | `createItems → setProperties → checkout`, "Bracket" in the Java |
+| *Check out an object and check it in* → *find item 000321 at the start* | `getItemFromAttribute → checkout → checkin` |
 | 3 steps → *then revise it and get its properties* → *then delete it* → *then check it out* | 3 → 5 → 6 steps, then the 6-step message |
 
-Fast checks without AI: `npm run check:followup` (`eval/followup.check.ts`, 25 requests).
-It also lists which of the 80 stand-alone test requests would read as follow-ups; only W3
+Fast checks without AI: `npm run check:followup` (`eval/followup.check.ts`, 36 checks,
+including "after/before X" against a sample flow). It also lists which of the 82 stand-alone
+test requests would read as follow-ups; only W3
 (*"What properties does this revision have?"*) does, and it really points back.
 
 ---
@@ -956,11 +978,11 @@ trademark / "not affiliated with Siemens" note.
 | Model missing | **ModelDownload** starts automatically; progress bar; *Cancel*; the terminal alternative |
 | Ready | Welcome text + 4 example chips, then the conversation |
 
-A follow-up answer (8.11) starts with "Added to your flow; it now has N steps", shows the
-earlier steps in grey, and has a link **"Not a follow-up? Make this a separate flow"**, which
-redoes that request as a new flow in the same place.
+Answers show **only the steps**, no heading. A follow-up answer (8.11) shows the earlier
+steps in grey and has a link **"Not a follow-up? Make this a separate flow"**, which redoes
+that request as a new flow in the same place. Clicking an answer shows its code on the right.
 
-Each answer lists the steps: `action → operationName` (a button that opens details),
+Each step reads `action → operationName` (a button that opens details), with
 a **recipe** badge for recipe-book steps, the user's values under the step, and the notes.
 
 **While an answer is being made**, the chat shows a "thinking" checklist
