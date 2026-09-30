@@ -12,7 +12,7 @@ export type { AiStatus } from '../shared/ai/status'
 // start.bat runs its own portable Ollama (runtime/ollama, port 11435) and tells the app
 // through these variables; otherwise the app uses a normally installed Ollama.
 const OLLAMA_URL = process.env['TC_OLLAMA_URL'] || 'http://127.0.0.1:11434'
-const PORTABLE_OLLAMA = process.env['TC_OLLAMA_EXE'] // runtimeollamaollama.exe, if any
+const PORTABLE_OLLAMA = process.env['TC_OLLAMA_EXE'] // runtime\ollama\ollama.exe, if any
 
 async function fetchWithTimeout(url: string, init: RequestInit, ms: number, signal?: AbortSignal): Promise<Response> {
   const ctrl = new AbortController()

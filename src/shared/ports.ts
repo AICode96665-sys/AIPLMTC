@@ -1,5 +1,5 @@
-// Port + type-compatibility helpers, shared by the canvas (renderer) and the
-// AI planner (main process) so both judge connections the same way.
+// Port + type-compatibility helpers, used by the AI planner (wiring) and the
+// Java generator (fields of a type).
 
 import { PRIMITIVES, type Operation, type RawData, type TypeDef } from './types'
 import { createExpander } from './expand'

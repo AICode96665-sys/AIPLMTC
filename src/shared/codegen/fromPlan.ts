@@ -1,4 +1,4 @@
-// Turns a validated AI plan into Java, reusing the canvas code generator.
+// Turns a validated AI plan into Java (see java.ts).
 
 import type { AiPlan } from '../ai/planner'
 import type { Operation, RawData } from '../types'

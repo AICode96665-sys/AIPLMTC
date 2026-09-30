@@ -3,6 +3,9 @@
 How the project works inside, why it is built this way, how its quality is measured, and
 the rules it follows. Read this before changing the AI or the code generator.
 
+**Full step-by-step guide** (every stage, every file, real traces):
+[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
+
 Related: [README.md](README.md) (install and use) · [PRIVACY.md](PRIVACY.md) ·
 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) · [FINDINGS.md](FINDINGS.md) (how the API
 reference data is structured).

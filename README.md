@@ -138,8 +138,9 @@ npm run check:recipes  # 63 fast recipe-matching checks (no AI needed)
 npm run eval -- --models qwen2.5-coder:1.5b --only Basic,Medium   # AI test suite (needs Ollama + a catalog)
 ```
 
-- How it works inside (AI pipeline, recipe book, code generator, tests):
-  [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
+- How it works inside, step by step (start-up, catalog, AI pipeline, Java generator,
+  screens, security, build, tests, real traces): [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)
+- Short summary: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
 - Test results: [eval/RESULTS.md](eval/RESULTS.md)
 - Release steps and security checks: [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
 
