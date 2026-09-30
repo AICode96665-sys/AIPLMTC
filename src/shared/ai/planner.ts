@@ -14,6 +14,7 @@ import type { Catalog, Operation } from '../types'
 import { operationPorts, typesCompatible, typesMatchExactly, type Port } from '../ports'
 import { retrieveOperations } from './retrieve'
 import { matchRecipe, resolveOp, type Recipe } from './recipes'
+import { STAGES } from './progress'
 
 /** The user's words beat the model's paraphrase: "Lock an object" must mean check
  *  out even if the model rewrote it as "set properties". Only words that really
@@ -55,7 +56,8 @@ export interface PlanStep {
   values: StepValues
   /** Where the operation came from: the built-in recipe book or catalog search. */
   source: 'recipe' | 'search'
-  /** How the operation was picked and the alternatives ("Why?" and "Change" in the chat). */
+  /** How the operation was picked and the ranked alternatives (for checks and tests;
+   *  not shown to the user). */
   choice: StepChoice
 }
 
@@ -68,9 +70,9 @@ export interface RankedOption {
 export interface StepChoice {
   /** recipe = recipe book · setup/cleanup = added around a recipe step ·
    *  only = the one search match · ai = the AI chose among the search matches ·
-   *  top = the AI gave no usable answer, so the best search match was used ·
-   *  user = chosen by the user with "Change operation" */
-  by: 'recipe' | 'setup' | 'cleanup' | 'only' | 'ai' | 'top' | 'user'
+   *  top = the best search match was used (the AI gave no usable answer, or picked a
+   *  clearly weaker match — see BEST_MATCH_MARGIN) */
+  by: 'recipe' | 'setup' | 'cleanup' | 'only' | 'ai' | 'top'
   /** recipe: the words that matched it */
   matched?: string
   /** setup/cleanup: the step that needs it */
@@ -98,6 +100,10 @@ export type AiPlanResult =
 
 const MAX_STEPS = 8
 const OPTIONS_PER_STEP = 4
+/** The AI's pick is kept only if its search relevance is within this many points of the
+ *  best match (100). Measured on the test suite: the AI rarely goes lower, and when it
+ *  did (PLM XML export) the best match was right. */
+const BEST_MATCH_MARGIN = 15
 
 // ---------- 1. Understand ----------
 
@@ -388,7 +394,7 @@ export async function planFlow(
   }
 
   // 1. Understand
-  progress('Understanding your request…')
+  progress(STAGES.understand.doing)
   const understood = await askJson<{ steps?: RawAction[] }>(
     chat,
     [
@@ -416,7 +422,7 @@ export async function planFlow(
 
   // 2. Recipe book first, then search — per action, using the action words
   //    only (never the values).
-  progress('Searching your catalog…')
+  progress(STAGES.search.doing)
   const options: Option[] = []
   for (const a of actions) {
     const action = a.action!.trim()
@@ -458,7 +464,7 @@ export async function planFlow(
   const chosen: string[] = options.map((o) => o.ops[0].url)
   const chosenBy: StepChoice['by'][] = options.map((o) => (o.recipe ? 'recipe' : o.ops.length > 1 ? 'top' : 'only'))
   if (options.some((o) => o.ops.length > 1)) {
-    progress('Choosing operations…')
+    progress(STAGES.choose.doing)
     const properties: Record<string, object> = {}
     options.forEach((o, i) => {
       if (o.ops.length > 1) properties[`step${i + 1}`] = { type: 'string', enum: o.ops.map((op) => op.url) }
@@ -479,14 +485,18 @@ export async function planFlow(
     )
     options.forEach((o, i) => {
       const pick = picks?.[`step${i + 1}`]
-      if (pick && o.ops.some((op) => op.url === pick)) {
-        chosen[i] = pick
-        chosenBy[i] = 'ai'
-      }
+      if (!pick || !o.ops.some((op) => op.url === pick)) return
+      // The small model sometimes passes over a clearly better match (e.g. an "offline
+      // package" export for "export to PLM XML"); then the search's best match wins.
+      const score = o.ranked.find((r) => r.url === pick)?.score ?? 0
+      if (score < 100 - BEST_MATCH_MARGIN) return
+      chosen[i] = pick
+      chosenBy[i] = 'ai'
     })
   }
 
   // Build steps; merge an action into the previous step if it chose the same operation.
+  progress(STAGES.assemble.doing)
   const byUrl = new Map(catalog.operations.map((o) => [o.url, o]))
   const steps: PlanStep[] = []
   const recipeOf = new Map<PlanStep, Recipe>()
@@ -526,16 +536,4 @@ function finishPlan(steps: PlanStep[], byUrl: Map<string, Operation>): AiPlan {
     .join(' → ')
     .replace(/^./, (c) => c.toUpperCase())
   return { explanation, steps, connections: wire(steps, byUrl) }
-}
-
-/** "Change operation": use `url` for step `stepId`, then wire the flow again.
- *  Returns null if the step or the operation doesn't exist. */
-export function changeOperation(catalog: Catalog, plan: AiPlan, stepId: string, url: string): AiPlan | null {
-  const byUrl = new Map(catalog.operations.map((o) => [o.url, o]))
-  if (!byUrl.has(url) || !plan.steps.some((s) => s.id === stepId)) return null
-  if (plan.steps.some((s) => !byUrl.has(s.url))) return null
-  const steps = plan.steps.map((s) =>
-    s.id === stepId ? { ...s, url, source: 'search' as const, choice: { ...s.choice, by: 'user' as const } } : s
-  )
-  return finishPlan(steps, byUrl)
 }

@@ -1,7 +1,4 @@
-import type { AiPlan, AiPlanResult } from './planner'
-
-/** Result of "Change operation": the re-wired plan and its new Java. */
-export type AiChangeResult = { ok: true; plan: AiPlan; code: string } | { ok: false; error: string }
+import type { AiPlanResult } from './planner'
 
 /** An installed local model. */
 export interface AiModel {

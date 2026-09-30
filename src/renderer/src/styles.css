@@ -194,7 +194,7 @@ html, body, #root {
   padding: 8px 11px; border-radius: 12px 12px 12px 2px; line-height: 1.45;
 }
 .msg-ai p { margin: 0 0 6px; }
-.msg-ai.pending { display: flex; align-items: center; gap: 8px; }
+.msg-ai.pending { display: flex; align-items: flex-end; gap: 12px; }
 .msg-ai.error { background: #fdecea; border-color: #f5c6cb; color: #b00020; white-space: pre-wrap; }
 .msg-ai.ok { cursor: pointer; }
 .msg-ai.ok:hover { border-color: var(--accent); }
@@ -261,30 +261,10 @@ html, body, #root {
 .dl-cancel { width: auto; align-self: flex-start; margin-top: 0; padding: 3px 12px; }
 .dl-alt { font-size: 12px; }
 
-/* "Why?" / "Change operation" on each step */
-.step-actions { margin-left: 8px; white-space: nowrap; }
-.step-actions .link-btn { font-size: 11px; padding: 0 3px; }
-.msg-user { background: #eef3e6; color: #3b6d11; }
-.msg-check { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #fdf1dc; color: #8a5a00; font-size: 10px; font-weight: 600; }
-.step-panel {
-  margin: 6px 0 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
-  background: #fff; color: var(--text); font-size: 12px; cursor: default;
-}
-.step-panel p { margin: 4px 0 8px; }
-.step-panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.step-warn { color: #8a5a00; }
-.small { font-size: 11px; }
-.opt-row {
-  display: block; width: 100%; text-align: left; margin: 4px 0; padding: 6px 8px;
-  border: 1px solid var(--border); border-radius: 6px; background: var(--panel); font: inherit; color: inherit;
-}
-.opt-row.pickable { cursor: pointer; background: #fff; }
-.opt-row.pickable:hover { border-color: var(--accent); background: var(--accent-soft); }
-.opt-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
-.opt-tag { padding: 0 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 10px; font-weight: 600; }
-.opt-tag.current { background: #e7e9ee; color: #444; }
-.opt-score { display: flex; align-items: center; gap: 6px; margin-top: 3px; color: var(--muted); font-size: 11px; }
-.opt-bar { flex: 0 0 120px; height: 5px; border-radius: 3px; background: #e7e9ee; overflow: hidden; }
-.opt-bar > div { height: 100%; background: var(--accent); }
-.opt-desc { margin-top: 3px; color: var(--muted); font-size: 11px; }
-.step-search { width: 100%; margin: 8px 0 2px; box-sizing: border-box; }
+/* "thinking" view while an answer is being made */
+.thinking { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.thinking li { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.thinking li.done { color: var(--muted); }
+.thinking .tick { width: 14px; text-align: center; color: #1d9e75; font-weight: 700; }
+.thinking li.now { color: var(--text); animation: think-pulse 1.4s ease-in-out infinite; }
+@keyframes think-pulse { 50% { opacity: 0.55; } }

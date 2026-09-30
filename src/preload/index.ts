@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { Catalog, RawData, CatalogSummary, LoadResult } from '../shared'
-import type { AiBuildResult, AiChangeResult, AiStatus } from '../shared/ai/status'
-import type { AiPlan } from '../shared/ai/planner'
+import type { AiBuildResult, AiStatus } from '../shared/ai/status'
 
 const api = {
   status: (): Promise<{ loaded: boolean; summary: CatalogSummary | null }> =>
@@ -18,9 +17,6 @@ const api = {
   aiStatus: (): Promise<AiStatus> => ipcRenderer.invoke('ai:status'),
   aiPlan: (query: string): Promise<AiBuildResult> => ipcRenderer.invoke('ai:plan', query),
   aiCancel: (): Promise<void> => ipcRenderer.invoke('ai:cancel'),
-  /** Use another operation for one step; returns the re-wired plan and new Java. */
-  aiChangeOperation: (plan: AiPlan, stepId: string, url: string): Promise<AiChangeResult> =>
-    ipcRenderer.invoke('ai:changeOperation', plan, stepId, url),
   copyText: (text: string): Promise<void> => ipcRenderer.invoke('clipboard:write', text),
   /** Download the app's AI model through Ollama. */
   aiPullModel: (): Promise<{ ok: true } | { ok: false; error: string }> => ipcRenderer.invoke('ai:pullModel'),

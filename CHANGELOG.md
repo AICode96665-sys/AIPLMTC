@@ -6,10 +6,11 @@
   properties to set, a file name to upload). The generator goes deeper only along those
   paths. On the Basic + Medium tests, values in the Java went from 4 of 12 to 11 of 12.
   Property names like "description" are turned into the Teamcenter names (`object_desc`).
-- **Why?** on every step: how its operation was picked (recipe book, AI choice, …) and the
-  ranked search matches. Steps where the AI didn't take the best match are marked **⚠ check**.
-- **Change** on every step: pick another operation from the matches or search the whole
-  catalog; the flow is re-wired and the Java rewritten.
+- **Safer operation choice:** if the AI picks an operation that is clearly weaker than the
+  best search match, the best match is used instead (e.g. "export to PLM XML" now gets
+  `exportObjectsToPLMXML`). Done in the back end; nothing extra on screen.
+- **"Thinking" view:** while an answer is being made, the chat shows the stages as a
+  checklist (understood your request ✓, found matching operations ✓, writing the Java code…).
 - `start.bat` now sets up everything by itself **without installing anything on the system**:
   Node.js 22.23.3 is included (official zip in `bundled\`), and it downloads portable
   Ollama 0.34.4 and the AI model (pinned versions, SHA-256 verified, resumable) into a

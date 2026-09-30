@@ -51,7 +51,8 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
   const [turns, setTurns] = useState<Turn[]>([])
   const [activeId, setActiveId] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
-  const [progress, setProgress] = useState('')
+  /** stages reached so far for the running request ("thinking" view) */
+  const [progress, setProgress] = useState<string[]>([])
   const [detailsOp, setDetailsOp] = useState<Operation | null>(null)
   /** which button just copied: 'all' | 'selection' */
   const [copied, setCopied] = useState<'all' | 'selection' | null>(null)
@@ -67,7 +68,7 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
 
   useEffect(() => {
     refresh()
-    return window.tc.onAiProgress(setProgress)
+    return window.tc.onAiProgress((m) => setProgress((p) => (p[p.length - 1] === m ? p : p.concat(m))))
   }, [refresh])
 
   const send = useCallback(
@@ -76,7 +77,7 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
       const id = Date.now()
       setTurns((ts) => ts.concat({ id, query, result: null }))
       setBusy(true)
-      setProgress('Starting…')
+      setProgress([])
       try {
         const result = await window.tc.aiPlan(query)
         setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, result } : t)))
@@ -90,23 +91,6 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
       }
     },
     [busy]
-  )
-
-  /** "Change operation": re-wire the flow in the back end and show the new Java. */
-  const changeOperation = useCallback(
-    async (turnId: number, stepId: string, url: string): Promise<string | null> => {
-      const turn = turns.find((t) => t.id === turnId)
-      if (!turn?.result?.ok) return 'This answer can no longer be changed.'
-      const r = await window.tc.aiChangeOperation(turn.result.plan, stepId, url)
-      if (!r.ok) return r.error
-      setTurns((ts) =>
-        ts.map((t) => (t.id === turnId && t.result?.ok ? { ...t, result: { ...t.result, plan: r.plan, code: r.code } } : t))
-      )
-      setActiveId(turnId)
-      setCopied(null)
-      return null
-    },
-    [turns]
   )
 
   const active = turns.find((t) => t.id === activeId)?.result
@@ -150,8 +134,6 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
         onCancel={() => window.tc.aiCancel()}
         byUrl={byUrl}
         onShowOperation={setDetailsOp}
-        catalog={catalog}
-        onChangeOperation={changeOperation}
       />
 
       <div className="studio-main">

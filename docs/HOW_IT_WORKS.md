@@ -109,6 +109,7 @@ src/shared/                   ── Pure logic, no Electron; used by main, rend
     recipeCrypto.ts           AES-256-GCM encrypt/decrypt of the recipe book
     recipeData.ts             The recipe book, encrypted (generated file — do not edit)
     status.ts                 AiStatus / AiBuildResult types shared by main and window
+    progress.ts               The "thinking" stages shown while an answer is made
   codegen/
     fromPlan.ts               AI plan → code-generator input
     java.ts                   The Java program generator
@@ -120,7 +121,6 @@ src/renderer/                 ── The window (React) ──
     CatalogLoader.tsx         "Load your structure.js" screen
     AiStudio.tsx              Main screen: chat left, Java right, operation details drawer
     AiChat.tsx                Chat column: setup states, answers, input box
-    StepPanel.tsx             "Why?" and "Change operation" panel under a step
     ModelDownload.tsx         Model download with progress bar and Cancel
     JavaCodeView.tsx          Read-only CodeMirror Java viewer (highlighting, line select)
     SchemaView.tsx            Tree view of an operation's request/response structure
@@ -350,7 +350,6 @@ maps to one `ipcMain.handle` in `src/main/index.ts`.
 | `aiStatus()` | `ai:status` | Start Ollama if needed; is the model installed? | `{ running, selected, model }` |
 | `aiPlan(query)` | `ai:plan` | **Run the whole pipeline + Java** (section 8) | `AiBuildResult` |
 | `aiCancel()` | `ai:cancel` | Abort the running request | – |
-| `aiChangeOperation(plan, stepId, url)` | `ai:changeOperation` | Use another operation for one step, re-wire, new Java (section 8.11) | `{ ok, plan, code }` / `{ ok:false, error }` |
 | `aiPullModel()` | `ai:pullModel` | Download **the app's own** model | `{ ok }` / `{ ok:false, error }` |
 | `aiCancelPull()` | `ai:cancelPull` | Abort the download | – |
 | `copyText(text)` | `clipboard:write` | Copy to clipboard (strings only, max 5 MB) | – |
@@ -593,8 +592,16 @@ step1 — export object. Options:
 ```
 
 The schema is `{ step1: { enum: [the 4 urls] }, … }`, so the reply can only be one of
-them. If the model gives nothing usable, the first (best-scoring) option is kept. When
-every action came from a recipe or had one option, **this call is skipped** entirely.
+them. When every action came from a recipe or had one option, **this call is skipped** entirely.
+
+**Safety check on the AI's pick** (`BEST_MATCH_MARGIN` = 15): each candidate has a search
+relevance of 0–100, where the best match is 100. The AI's pick is kept only if its relevance is
+at least 85. If the small model picks a clearly weaker match, or gives no usable answer, the
+best search match is used instead. Measured on all 80 test requests: the AI picked below the
+best match only 3 times ("create item": `createObjects` 83 instead of `createItems` 100,
+both correct), and in the PLM XML example (section 10.3) it picked a wrong operation at 81
+while the right one was the best match. This check runs in the back end; the user
+just sees the result.
 
 ### 8.7 [G] Build the steps
 
@@ -603,8 +610,8 @@ chose **the same operation as the previous step**, the two are merged: the actio
 joined with "+", and the properties are combined. For example, "set name" + "set description"
 becomes one `setProperties`.
 
-**`choice`** records *how* the operation was picked, for the chat's **Why?** and **Change**
-buttons (section 11):
+**`choice`** records *how* the operation was picked. It is used by the back end and the
+tests, and is **not shown to the user**:
 
 | `choice.by` | Meaning |
 |---|---|
@@ -612,12 +619,10 @@ buttons (section 11):
 | `setup` / `cleanup` | Added around a recipe step; `forAction` = the step that needs it |
 | `only` | The search found just one match |
 | `ai` | The AI chose among the search matches |
-| `top` | The AI gave no usable answer, so the best search match was used |
-| `user` | The user picked it with **Change** |
+| `top` | The best search match was used (the AI gave no usable answer, or picked a clearly weaker match) |
 
 `choice.options` holds the search matches for the action, best first, each with a
-relevance of 0–100 (the best match = 100). The search runs for recipe steps too, so they
-also have alternatives to show.
+relevance of 0–100 (the best match = 100).
 
 Property names are normalised in `cleanValues`: the plain words the model sometimes uses
 (`name`, `description`, `desc`…) become the Teamcenter names `object_name` / `object_desc`.
@@ -651,21 +656,6 @@ result looks like `{ from: 's2', fromPort: 'data', to: 's3', toPort: 'objects' }
   notes: ["Added createBOMWindows before …", "No operation in your catalog matches …"],
   candidates: [every operation url that was considered] }
 ```
-
-### 8.11 Change operation (after the answer)
-
-When the user picks another operation for a step, the window sends the plan back with
-`ai:changeOperation(plan, stepId, url)`. The main process:
-
-1. **rebuilds the plan from checked values only** (`sanitizePlan` in `index.ts`: known
-   fields, strings only, size limits, at most 20 steps). It doesn't trust what the window sent;
-2. `changeOperation()` (`planner.ts`) checks that the new operation and every step's
-   operation exist in the catalog, swaps the operation (`choice.by = 'user'`, the recipe
-   badge goes away), and **wires the whole flow again**;
-3. regenerates the Java and returns `{ plan, code }`.
-
-The step keeps its values, so e.g. "Released for build" is still filled in after a change.
-Setup and cleanup steps stay as they are; they can be changed the same way.
 
 ---
 
@@ -827,13 +817,13 @@ Request: *Export an object to PLM XML*
   never wrote them.
 - No recipe matched, so the search returned 4 candidates, including the right one,
   `exportObjectsToPLMXML`.
-- Choose: the 1.5B model picked `exportObjectsToOfflinePackage`, **the wrong one**.
+- Choose: the 1.5B model picked `exportObjectsToOfflinePackage` (relevance 81), **the wrong one**.
+- Safety check (section 8.6): 81 is below 85, so the back end uses the best search match,
+  `exportObjectsToPLMXML` (100). **The answer is right** without the user doing anything.
 
-The design keeps the answer inside the real candidates, but a small model can still pick
-the wrong candidate. The chat therefore marks such a step **⚠ check** (the AI didn't choose
-the best search match). **Why?** shows the ranking (`exportObjectsToPLMXML` 100 · best match,
-… `exportObjectsToOfflinePackage` 81 · in use), and **Change** lets the user pick
-`exportObjectsToPLMXML` with one click; the flow is re-wired and the Java rewritten.
+The design keeps the answer inside the real candidates, and the safety check catches clearly
+weaker picks. A small model can still be wrong when the candidates score close together, so
+the Java remains a starting point to review.
 
 ### 10.4 Rejected requests
 
@@ -855,7 +845,7 @@ trademark / "not affiliated with Siemens" note.
 
 **AiStudio** (`AiStudio.tsx`): chat on the left, Java on the right.
 - On open: `refresh()` → `window.tc.aiStatus()` (this may start Ollama), and it subscribes
-  to `ai:progress`.
+  to `ai:progress`, collecting the stages of the running request.
 - `send(query)` adds a "turn" `{ id, query, result: null }`, calls `aiPlan`, then stores
   the result. A successful result becomes the **active** turn, shown on the right.
 - **Copy all** and **Copy selection (n lines)** go through `window.tc.copyText`, and the
@@ -875,16 +865,22 @@ trademark / "not affiliated with Siemens" note.
 | Ready | Welcome text + 4 example chips, then the conversation |
 
 Each answer lists the steps: `action → operationName` (a button that opens details),
-a **recipe** badge for recipe-book steps, **your choice** after a change, **⚠ check** when the
-AI didn't pick the best search match, the user's values under the step, and the notes.
+a **recipe** badge for recipe-book steps, the user's values under the step, and the notes.
 
-Every step has two small buttons, which open a panel under the step (**StepPanel.tsx**):
-- **Why?** explains in plain words how the operation was picked (recipe book and the
-  matching words, added setup/cleanup and for which step, only match, AI choice, or your
-  choice) and lists the search matches with relevance bars, with "best match" and "in use" tags.
-- **Change** lists the best matches as clickable rows, plus a box to **search all
-  operations** in the catalog (the same search as the pipeline, run in the window). Picking one
-  calls `ai:changeOperation` (section 8.11) and updates the answer and the Java.
+**While an answer is being made**, the chat shows a "thinking" checklist
+(`shared/ai/progress.ts`): the back end sends each stage as it starts, finished stages get a
+✓, and the current one has a spinner and a soft pulse:
+
+```
+✓ Understood your request
+✓ Found matching operations
+◌ Choosing the best operations…            [Cancel]
+```
+
+The stages are *Thinking about your request* → *Looking through your API* →
+*Choosing the best operations* (only when the AI has to choose) → *Putting the steps
+together* → *Writing the Java code*. The ranking, relevance scores and the safety check stay
+in the back end; the user only sees the result.
 Older answers can be clicked to show their code again. Enter sends; Shift+Enter adds a new
 line; the input is disabled until the AI is ready.
 
@@ -1018,6 +1014,7 @@ scores 96% over all 80 tests but is roughly 5× slower and 5× bigger. Full tabl
 | AI model | `qwen2.5-coder:1.5b` (Apache-2.0, ~1 GB) | `shared/edition.ts` |
 | Max actions per request | 3 (hard cap 8 before the limit check) | `edition.ts`, `planner.ts` `MAX_STEPS` |
 | Candidates per action | 4 | `planner.ts` `OPTIONS_PER_STEP` |
+| AI pick kept if relevance ≥ | 85 (best match = 100) | `planner.ts` `BEST_MATCH_MARGIN` |
 | Java structure depth | 1, plus up to 4 more levels only where a user value goes | `edition.ts` `codegenDepth`, `java.ts` `VALUE_DEPTH` |
 | AI temperature / context | 0 / 8192 tokens | `ollama.ts` |
 | Chat timeout | 5 minutes | `ollama.ts` |
@@ -1041,8 +1038,8 @@ scores 96% over all 80 tests but is roughly 5× slower and 5× bigger. Full tabl
 - **Class names are inferred** from the catalog; verify package and class names against
   your Teamcenter SDK.
 - **The small model can pick the wrong candidate** when there is no recipe (example 10.3),
-  or miss an action. Always read the steps; use **Why?** / **Change** to fix a step. (A
-  missing step can't be added yet; ask again with clearer words.)
+  or miss an action. Always read the steps; if one is wrong or missing, ask again with
+  clearer words.
 - **Wired inputs are `TODO`.** The code says which earlier output to use, but the mapping
   is not written for you.
 - Up to 3 steps per request; ID values (e.g. "000321") are not always extracted.
