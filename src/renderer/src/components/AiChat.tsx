@@ -42,8 +42,7 @@ export default function AiChat({
   busy: boolean
   /** stages reached so far; the last one is running */
   progress: string[]
-  /** `separate`: redo that answer as a new flow instead of a follow-up */
-  onSend: (query: string, separate?: number) => void
+  onSend: (query: string) => void
   onCancel: () => void
   byUrl: Map<string, Operation>
   /** Open the details (description, request, response) of a step's operation. */
@@ -203,18 +202,6 @@ export default function AiChat({
                           <li key={i}>{n}</li>
                         ))}
                       </ul>
-                    )}
-                    {t.result.plan.steps.some((s) => s.earlier) && (
-                      <button
-                        className="link-btn msg-separate"
-                        disabled={busy}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onSend(t.query, t.id)
-                        }}
-                      >
-                        Not a follow-up? Make this a separate flow
-                      </button>
                     )}
                   </div>
                 )}

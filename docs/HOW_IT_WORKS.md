@@ -978,9 +978,9 @@ trademark / "not affiliated with Siemens" note.
 | Model missing | **ModelDownload** starts automatically; progress bar; *Cancel*; the terminal alternative |
 | Ready | Welcome text + 4 example chips, then the conversation |
 
-Answers show **only the steps**, no heading. A follow-up answer (8.11) shows the earlier
-steps in grey and has a link **"Not a follow-up? Make this a separate flow"**, which redoes
-that request as a new flow in the same place. Clicking an answer shows its code on the right.
+Answers show **only the steps**, no heading or extra links. In a follow-up answer (8.11) the
+earlier steps are in grey. Clicking an answer shows its code on the right. To start a new flow,
+write the request in full without pointing back ("Delete a dataset", not "delete it").
 
 Each step reads `action → operationName` (a button that opens details), with
 a **recipe** badge for recipe-book steps, the user's values under the step, and the notes.

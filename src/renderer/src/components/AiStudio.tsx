@@ -72,17 +72,14 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
   }, [refresh])
 
   /** Ask the AI. A follow-up ("check out this object") continues the flow on screen; the
-   *  back end decides whether the words point back. `separate` = start a new flow for an
-   *  answer that was wrongly taken as a follow-up (it replaces that answer). */
+   *  back end decides whether the words point back. */
   const send = useCallback(
-    async (query: string, separate?: number) => {
+    async (query: string) => {
       if (busy) return
       const shown = turns.find((t) => t.id === activeId)?.result
-      const continueFrom = separate === undefined && shown?.ok ? shown.planId : undefined
-      const id = separate ?? Date.now()
-      setTurns((ts) =>
-        separate === undefined ? ts.concat({ id, query, result: null }) : ts.map((t) => (t.id === id ? { ...t, result: null } : t))
-      )
+      const continueFrom = shown?.ok ? shown.planId : undefined
+      const id = Date.now()
+      setTurns((ts) => ts.concat({ id, query, result: null }))
       setBusy(true)
       setProgress([])
       try {
