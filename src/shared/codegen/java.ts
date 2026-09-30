@@ -315,12 +315,46 @@ export function generateJava(
   }
 
   const ordered = topoSort(nodes, edges)
+  // A name per step: the operation name, plus the step number when the flow calls the
+  // same operation twice (so no Java variable is declared twice).
+  const timesUsed = new Map<string, number>()
+  for (const n of ordered) timesUsed.set(n.name, (timesUsed.get(n.name) ?? 0) + 1)
+  const stepName = new Map<string, string>()
   const varName = new Map<string, string>()
   const stepNo = new Map<string, number>()
   ordered.forEach((n, i) => {
     stepNo.set(n.id, i + 1)
-    varName.set(n.id, `${lcfirst(n.name)}Response`)
+    const name = timesUsed.get(n.name)! > 1 ? `${lcfirst(n.name)}${i + 1}` : lcfirst(n.name)
+    stepName.set(n.id, name)
+    varName.set(n.id, `${name}Response`)
   })
+
+  /** An input wired from an earlier step's output, when that is simple and safe: the
+   *  same type (T ← T, T[] ← T[]), the first of a list (T ← T[]) or a one-element list
+   *  (T[] ← T). Anything else (a result structure, ServiceData, a map) returns null. */
+  function mapWire(srcVar: string, out: Port, input: Port): { expr: string; note: string } | null {
+    if (javaBase(out.type) !== javaBase(input.type)) return null
+    const outArr = out.type.includes('[]')
+    const inArr = input.type.includes('[]')
+    const src = `${srcVar}.${out.name}`
+    if (outArr === inArr) return { expr: src, note: '' }
+    if (outArr) return { expr: `${src}[0]`, note: ' (the first one: check it is the one you need)' }
+    return { expr: `new ${javaBase(input.type)}[] { ${src} }`, note: '' }
+  }
+
+  /** For a result structure: which object fields could feed the input
+   *  (" — createItemsResponse.output[i] has .item (Item), .itemRev (ItemRevision)"). */
+  function wireHint(srcVar: string, out: Port): string {
+    const objects = resolveFields(out.type).filter(
+      (f) => !isPrimitive(f.type) && !f.type.includes(';') && resolveFields(f.type).length === 0
+    )
+    if (objects.length === 0) return ''
+    const each = `${srcVar}.${out.name}${out.type.includes('[]') ? '[i]' : ''}`
+    // "inputObject" & co. echo what was passed in (e.g. where-used: the part, not its parents)
+    const say = (f: Port): string =>
+      `.${f.name} (${javaType(f.type)}${/^input/i.test(f.name) ? ', the object you passed in' : ''})`
+    return ` — ${each} has ${objects.map(say).join(', ')}`
+  }
 
   const incoming = new Map<string, GenEdge[]>()
   for (const e of edges) {
@@ -358,15 +392,21 @@ export function generateJava(
 
     const argExprs: string[] = []
     n.inputs.forEach((port, i) => {
-      const argVar = `${lcfirst(n.name)}${ucfirst(port.name)}`
+      const argVar = `${stepName.get(n.id)}${ucfirst(port.name)}`
       const wired = inEdges.find((e) => e.targetHandle === port.name)
 
       if (wired) {
         const srcNode = nodes.find((nn) => nn.id === wired.source)
-        const srcVar = varName.get(wired.source)
-        B.push(
-          `${ind}${argType(i, port)} ${argVar} = null; // TODO: map from ${srcNode?.name ?? '?'}.${wired.sourceHandle} (${srcVar}.${wired.sourceHandle})`
-        )
+        const srcVar = varName.get(wired.source)!
+        const out = srcNode?.outputs.find((o) => o.name === wired.sourceHandle)
+        const from = `${srcNode?.name ?? '?'}.${wired.sourceHandle}`
+        const mapped = out ? mapWire(srcVar, out, port) : null
+        if (mapped) {
+          B.push(`${ind}${argType(i, port)} ${argVar} = ${mapped.expr}; // from step ${stepNo.get(wired.source)} (${from})${mapped.note}`)
+        } else {
+          const hint = out ? wireHint(srcVar, out) : ''
+          B.push(`${ind}${argType(i, port)} ${argVar} = null; // TODO: map from ${from}${hint || ` (${srcVar}.${wired.sourceHandle})`}`)
+        }
         argExprs.push(argVar)
         return
       }
@@ -415,6 +455,7 @@ export function generateJava(
       : '// Request objects expanded 1 level.'
   )
   L.push('// Values from your request are filled in ("from your request"); the rest are TODO.')
+  L.push('// Inputs taken from an earlier step say "from step N".')
   L.push('// Java names are inferred from the API catalog: verify package, class and')
   L.push('// internal type names (e.g. custom business object types) for your site.')
   L.push('// ============================================================')

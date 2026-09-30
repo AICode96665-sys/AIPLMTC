@@ -166,7 +166,8 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
           />
           <div className="code-hint">
             Click a line number to select a line · Shift+click to select several · Ctrl+C to copy · Ctrl+F to search ·
-            <span className="hint-todo"> TODO</span> = fill in ·<span className="hint-given"> from your request</span> = filled from your words
+            <span className="hint-todo"> TODO</span> = fill in ·<span className="hint-given"> from your request</span> = filled from your words ·
+            <span className="hint-wired"> from step N</span> = taken from an earlier step
           </div>
           {detailsOp && <OperationDetails op={detailsOp} rawData={rawData} onClose={() => setDetailsOp(null)} />}
         </section>

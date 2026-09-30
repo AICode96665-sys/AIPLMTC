@@ -737,7 +737,8 @@ inputs/outputs ports, values) and each connection into a `GenEdge`. Then it call
 
    | Case | Generated line |
    |---|---|
-   | The port is **wired** from an earlier step | `Type x = null; // TODO: map from <step>.<output> (<var>.<output>)` |
+   | The port is **wired** from an earlier step, and the mapping is simple (see below) | `Type x = resp.field; // from step 1 (op.field)` |
+   | The port is wired, but the mapping isn't simple | `Type x = null; // TODO: map from op.field — resp.field[i] has .item (Item), .itemRev (ItemRevision)` |
    | The user **gave a value** for it (`givenValue`) | `String x = "Spec A"; // from your request` |
    | Primitive type | `String x = ""; // TODO: set "comment"` (default: `""`, `0`, `false`, `null`) |
    | A structure | built by `buildValue` (below), or `Type x = null; // TODO` if it can't be built |
@@ -786,8 +787,31 @@ Measured on the 35 Basic + Medium test requests: property values and file names 
 the Java went from **4 of 12 to 11 of 12**. The one left is a misreading by the model: a
 "file" that isn't a file name, for an operation that has no file field.
 
-**In the viewer**, `// TODO` lines are highlighted amber (still to fill in) and
-`// from your request` green (taken from the user's words).
+**Wired inputs** (`mapWire` / `wireHint`). The code is written only when the mapping is
+simple and safe, judged from the catalog's types:
+
+| Earlier output → input | Java | Example |
+|---|---|---|
+| same type (`T → T`, `T[] → T[]`) | `x = resp.field;` | `getDatasetWriteTickets.commitInfo` → `commitDatasetFiles.commitInput`; `executeSavedQuery.objects` → `getProperties.objects` |
+| a list into a single value (`T[] → T`) | `x = resp.field[0];` + "the first one: check it is the one you need" | `findSavedQueries.savedQueries` → `executeSavedQuery.query` |
+| a single value into a list (`T → T[]`) | `x = new T[] { resp.field };` | |
+
+Everything else stays a TODO, on purpose:
+- **A result structure** (e.g. `createItems.output`, each element has `.item` *and*
+  `.itemRev`). Which one you need depends on what you mean, so the TODO **lists the exact
+  choices** instead of guessing. Even a single choice can be wrong: `whereUsed.output[i]`
+  has one object field, `.inputObject`, but that is the object you passed in, not its parents;
+  such fields are marked "the object you passed in".
+- **`ServiceData` and maps** (e.g. `setProperties.data`, `revise2.reviseOutputMap`): reading
+  them needs Siemens SDK calls that aren't in the catalog, and the app doesn't use the SDK.
+
+When a flow calls the same operation twice (more likely with follow-ups), its variables get
+the step number (`getProperties1Response`, `getProperties3Response`), so no Java name is
+declared twice.
+
+**In the viewer**, `// TODO` lines are highlighted amber (still to fill in),
+`// from your request` green (taken from the user's words) and `// from step N` blue (taken
+from an earlier step's result).
 
 ---
 
@@ -1102,8 +1126,8 @@ scores 96% over all 80 tests but is roughly 5× slower and 5× bigger. Full tabl
 - **The small model can pick the wrong candidate** when there is no recipe (example 10.3),
   or miss an action. Always read the steps; if one is wrong or missing, ask again with
   clearer words.
-- **Wired inputs are `TODO`.** The code says which earlier output to use, but the mapping
-  is not written for you.
+- **Only simple wired inputs are written** (same type, first of a list). Result structures,
+  `ServiceData` and maps stay TODO, with the exact fields to choose from where possible.
 - Up to 3 steps per request and 6 per flow; ID values (e.g. "000321") are not always extracted.
 - Follow-ups can only **add** steps; "change step 2 to …" or "remove the last step" isn't
   understood. Flows are kept only while the app is open.

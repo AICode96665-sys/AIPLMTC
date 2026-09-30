@@ -63,6 +63,7 @@ const theme = EditorView.theme(
     '.cm-lineNumbers .cm-gutterElement:hover': { color: '#fff' },
     '.cm-todo': { backgroundColor: 'rgba(229, 164, 44, 0.18)', color: '#f0c05a', borderRadius: '2px' },
     '.cm-given': { backgroundColor: 'rgba(80, 200, 140, 0.18)', color: '#7fd1a8', borderRadius: '2px' },
+    '.cm-wired': { backgroundColor: 'rgba(97, 175, 239, 0.16)', color: '#8cc4f5', borderRadius: '2px' },
     '.cm-selectionMatch': { backgroundColor: 'rgba(97, 175, 239, 0.25)' }
   },
   { dark: true }
@@ -102,6 +103,7 @@ export default function JavaCodeView({
           keymap.of([...searchKeymap, ...defaultKeymap]),
           markPlugin(/\bTODO\b.*$/gm, 'cm-todo'),
           markPlugin(/\/\/ from your request/g, 'cm-given'),
+          markPlugin(/\/\/ from step \d+.*$/gm, 'cm-wired'),
           EditorView.updateListener.of((u) => {
             if (!u.selectionSet && !u.docChanged) return
             const { from, to } = u.state.selection.main

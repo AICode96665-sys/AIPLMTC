@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Connections between steps are written as code when simple:** same type
+  (`x = resp.field`) or the first of a list (`resp.field[0]`); marked `// from step N` and
+  shown in blue. Other connections stay TODO but list the exact choices (e.g.
+  `.item (Item), .itemRev (ItemRevision)`).
+- Fixed: a flow that uses the same operation twice declared the same Java variable twice.
 - **Follow-up requests:** continue the program on screen with e.g. *"check out this
   object"* or *"then check it in"*; the new steps are added, the flow is re-wired and one Java
   program is written. Detected automatically from the words (plain code, no AI); up to 6
