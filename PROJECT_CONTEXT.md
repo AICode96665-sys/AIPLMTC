@@ -57,7 +57,7 @@ with your values filled in. Everything runs **on your PC**: the AI model runs lo
 │  - generates Java                (IPC calls)        - Java viewer (right) │
 │  - enforces limits, hardening                                             │
 └──────────────┬───────────────────────────────────────────────────────────┘
-               │ HTTP to 127.0.0.1:11434 only
+               │ HTTP to 127.0.0.1 only (port 11434, or 11435 for start.bat)
         ┌──────▼──────┐
         │   Ollama    │  runs the AI model on the same PC
         └─────────────┘
@@ -190,7 +190,11 @@ name/value property structs, workflow template, saved-query values) and marked
 catalog; verify them against your Teamcenter SDK.
 
 ### 5.7 Local AI engine (`ollama.ts`)
-Talks to `127.0.0.1:11434` only; structured outputs (JSON schema), temperature 0.
+Talks to the local Ollama only: `127.0.0.1:11434` normally, or the portable Ollama that
+`start.bat` runs from `runtime\ollama` on `127.0.0.1:11435` (passed in as `TC_OLLAMA_URL` /
+`TC_OLLAMA_EXE`; `start.bat` also sets `OLLAMA_HOST` and `OLLAMA_MODELS=runtime\models`, and
+uses a portable Node.js from `runtime\node`, all pinned and SHA-256 checked). Structured
+outputs (JSON schema), temperature 0.
 The app always uses the fixed model from `edition.ts` (Apache-2.0), with no model picker. On every status check the app first calls `ensureOllamaRunning()` (starts the installed Ollama tray app or `ollama serve` if the server isn't answering). If the model is missing, the app starts the download automatically (the **Download AI model** component with `autoStart`); it asks Ollama to pull it (`/api/pull`, streamed progress, cancellable); only the app's own model name can be requested.
 
 ---

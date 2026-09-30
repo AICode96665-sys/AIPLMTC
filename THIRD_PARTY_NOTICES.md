@@ -5,8 +5,14 @@ The Windows installer also contains **Electron** (MIT, https://github.com/electr
 which includes Chromium and Node.js; their license files are shipped with the installer
 (`LICENSE.electron.txt`, `LICENSES.chromium.html`).
 
+The source repository also contains **Node.js 22.23.3** for Windows x64 (MIT and bundled
+third-party licenses, https://nodejs.org), as the unmodified official archive
+`bundled/node-v22.23.3-win-x64.zip`; its license texts are inside the archive (`LICENSE`).
+`start.bat` unpacks it into `runtime\node`. It is not part of the Windows installer.
+
 The AI model (**qwen2.5-coder:1.5b**, Apache-2.0) and **Ollama** (MIT) are **not** included;
-users install them separately.
+`start.bat` downloads them into `runtime\` (Ollama from its official GitHub release, checked
+against its SHA-256), or users install them separately.
 
 | Package | Version | License |
 |---|---|---|

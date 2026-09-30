@@ -9,7 +9,10 @@ import type { AiModel } from '../shared/ai/status'
 
 export type { AiStatus } from '../shared/ai/status'
 
-const OLLAMA_URL = 'http://127.0.0.1:11434'
+// start.bat runs its own portable Ollama (runtime/ollama, port 11435) and tells the app
+// through these variables; otherwise the app uses a normally installed Ollama.
+const OLLAMA_URL = process.env['TC_OLLAMA_URL'] || 'http://127.0.0.1:11434'
+const PORTABLE_OLLAMA = process.env['TC_OLLAMA_EXE'] // runtimeollamaollama.exe, if any
 
 async function fetchWithTimeout(url: string, init: RequestInit, ms: number, signal?: AbortSignal): Promise<Response> {
   const ctrl = new AbortController()
@@ -153,12 +156,14 @@ export type OllamaStart = 'running' | 'started' | 'not-installed' | 'failed'
  *  known Ollama executables are started — never anything from user input. */
 export async function ensureOllamaRunning(): Promise<OllamaStart> {
   if ((await listModels()).running) return 'running'
-  const { app, cli } = findOllama()
+  // portable Ollama from start.bat: its settings (OLLAMA_HOST, OLLAMA_MODELS) are in our environment
+  const portable = PORTABLE_OLLAMA && existsSync(PORTABLE_OLLAMA) ? PORTABLE_OLLAMA : undefined
+  const { app, cli } = portable ? { app: undefined, cli: portable } : findOllama()
   if (!app && !cli) return 'not-installed'
   try {
     const child = app
       ? spawn(app, [], { detached: true, stdio: 'ignore', windowsHide: true })
-      : spawn(cli!, ['serve'], { detached: true, stdio: 'ignore', windowsHide: true })
+      : spawn(cli!, ['serve'], { detached: true, stdio: 'ignore', windowsHide: true, env: process.env })
     child.on('error', () => {})
     child.unref()
   } catch {

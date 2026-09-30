@@ -7,3 +7,6 @@ dist/
 
 # readable recipe book: local only (the repo has the encrypted copy)
 recipes/recipes.json
+
+# portable Node.js, Ollama and AI model downloaded by start.bat
+runtime/

@@ -29,7 +29,8 @@ The app itself makes **no internet connections**. Two things happen automaticall
 - **Downloading the AI model:** if `qwen2.5-coder:1.5b` is not installed, the app asks the
   local Ollama to download it **once** from Ollama's model library, with progress and a
   Cancel button. This sends no user data — only a request for the public model files.
-  `start.bat` does the same (and can install Ollama itself with `winget`).
+  `start.bat` does the same with its own portable Ollama; it also downloads portable
+  Ollama from its official GitHub release, checked against its SHA-256 checksum, into the `runtime` folder next to it.
 
 ## Files the app writes
 

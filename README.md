@@ -28,7 +28,7 @@ Teamcenter is a trademark of Siemens.*
 
 1. **Windows 10/11** (8 GB RAM is enough).
 2. **Ollama** (free), which runs the AI on your PC: install from [ollama.com](https://ollama.com)
-   (Method 2's `start.bat` installs it for you, together with Node.js). You don't need to do anything else: the app
+   (or use Method 2: its `start.bat` brings its own portable copy). You don't need to do anything else: the app
    **starts Ollama automatically** and **downloads the AI model automatically** the first time
    (about 1 GB, once, with a progress bar and Cancel).
 3. **Your Teamcenter API catalog (`structure.js`)**: the data file behind the Teamcenter
@@ -54,7 +54,9 @@ There are two ways to install. Both need **Ollama** and your **catalog file** (s
 
 ### Method 2 — Clone (or download) and double-click `start.bat`
 
-**Nothing to install first.** `start.bat` installs whatever is missing.
+**Nothing to install first, and nothing gets installed on your system.** Node.js comes with
+the code (`bundled\`); `start.bat` downloads Ollama and the AI model, keeps everything in a
+`runtime` folder next to it, and uses only those.
 
 1. **Get the code**, either way:
    - with Git:
@@ -66,26 +68,28 @@ There are two ways to install. Both need **Ollama** and your **catalog file** (s
 2. **Open the folder** `AIPLM` (for the ZIP: `AIPLM-main`) in File Explorer.
 3. **Double-click `start.bat`.**
 
-`start.bat` checks each piece and installs anything missing:
-
 | Step | What it does |
 |---|---|
-| 1/5 | **Node.js** 20.19 or newer? If missing or too old, installs **Node.js LTS** with Windows' `winget`. Windows asks for permission: click **Yes**. |
-| 2/5 | **Ollama** (runs the AI on your PC)? If missing, installs it with `winget`; if installed but not running, starts it. |
-| 3/5 | **AI model** `qwen2.5-coder:1.5b`? If missing, downloads it (about 1 GB, first time only). |
-| 4/5 | **App components** and Electron? Installs them on the first run (a few minutes). |
-| 5/5 | Builds and opens **TC SOA Studio**. |
+| 1/5 | **Node.js 22.23.3** (portable, included in `bundled\`) → unpacked to `runtime\node` |
+| 2/5 | **Ollama 0.34.4** (portable, runs the AI on your PC) → `runtime\ollama`, started on its own port **11435** |
+| 3/5 | **AI model** `qwen2.5-coder:1.5b` → `runtime\models` |
+| 4/5 | **App components** and Electron → `node_modules` (npm/Electron caches in `runtime`) |
+| 5/5 | Builds and opens **TC SOA Studio** |
 
-**Before you start, you need:**
-- Windows 10 (version 1809 or newer) or Windows 11. These include `winget`; without it,
-  `start.bat` opens the Node.js / Ollama download pages instead.
-- An internet connection and about **4 GB** of free disk space (checked automatically).
-- The first run takes a few minutes; after that, double-click `start.bat` again and the app
-  opens in seconds. Keep the black window open while you use the app (closing it closes the app).
+Each piece is downloaded only the first time; after that the app opens in seconds.
 
-Automatic installs go through `winget` and accept its source and package agreements for Node.js
-(MIT license) and Ollama (MIT license) on your behalf; run the installers yourself instead if
-you prefer.
+- **Your own Node.js or Ollama are never used or changed.** No admin rights, no installers,
+  no PATH or system changes. A Node.js or Ollama you already have keeps working as before
+  (our Ollama uses port 11435, the normal one uses 11434).
+- **Checked files:** the included Node.js (the official nodejs.org archive) and the Ollama
+  download (official GitHub release) are pinned versions verified against their SHA-256
+  checksums; a damaged or altered file is not used. Interrupted downloads resume.
+- **To remove everything:** delete the `AIPLM` folder (or just its `runtime` folder).
+
+**You need:** Windows 10 (version 1803 or newer) or Windows 11, an internet connection for the
+first run, and about **6 GB** of free disk space (checked automatically; the first run
+downloads about 2.4 GB). Keep the black window open while you use the app; when you close the
+app, `start.bat` stops its Ollama again.
 
 > **ZIP download:** Windows marks files from the internet, so it may ask before running
 > `start.bat`. Click **More info → Run anyway** (or right-click the ZIP → **Properties** →

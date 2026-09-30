@@ -2,4 +2,5 @@
 *.png binary
 *.ico binary
 *.exe binary
+*.zip binary
 *.bat text eol=crlf

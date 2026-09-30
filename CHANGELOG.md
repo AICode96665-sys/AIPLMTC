@@ -2,9 +2,14 @@
 
 ## Unreleased
 
-- `start.bat` now sets up everything by itself: installs Node.js LTS (winget) if it is
-  missing or too old, installs Ollama without a countdown, checks free disk space (4 GB),
-  shows numbered steps, and explains what to do when run from inside a ZIP.
+- `start.bat` now sets up everything by itself **without installing anything on the system**:
+  Node.js 22.23.3 is included (official zip in `bundled\`), and it downloads portable
+  Ollama 0.34.4 and the AI model (pinned versions, SHA-256 verified, resumable) into a
+  `runtime` folder next to it, and uses only those. An existing Node.js or Ollama is neither used nor changed; the portable Ollama
+  runs on port 11435 and is stopped when the app closes. Also checks free disk space (6 GB)
+  and explains what to do when run from inside a ZIP.
+- The app uses the portable Ollama when started from `start.bat` (`TC_OLLAMA_URL`,
+  `TC_OLLAMA_EXE`), and a normally installed Ollama otherwise.
 
 ## v0.1.2 (2026-09-29)
 
