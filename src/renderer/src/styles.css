@@ -268,3 +268,7 @@ html, body, #root {
 .thinking .tick { width: 14px; text-align: center; color: #1d9e75; font-weight: 700; }
 .thinking li.now { color: var(--text); animation: think-pulse 1.4s ease-in-out infinite; }
 @keyframes think-pulse { 50% { opacity: 0.55; } }
+
+/* follow-up requests: steps from earlier requests of the same flow */
+.msg-steps li.earlier { opacity: 0.55; }
+.msg-separate { display: block; margin-top: 4px; padding: 0; font-size: 11px; }

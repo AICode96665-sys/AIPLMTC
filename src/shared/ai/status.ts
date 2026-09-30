@@ -16,7 +16,8 @@ export interface AiStatus {
   model: string
 }
 
-/** A successful AI plan plus the Java generated from it in the backend. */
+/** A successful AI plan plus the Java generated from it in the backend. `planId` lets a
+ *  follow-up request ("check out this object") continue this flow. */
 export type AiBuildResult =
-  | (Extract<AiPlanResult, { ok: true }> & { code: string })
+  | (Extract<AiPlanResult, { ok: true }> & { code: string; planId: number })
   | Extract<AiPlanResult, { ok: false }>

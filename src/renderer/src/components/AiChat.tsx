@@ -42,7 +42,8 @@ export default function AiChat({
   busy: boolean
   /** stages reached so far; the last one is running */
   progress: string[]
-  onSend: (query: string) => void
+  /** `separate`: redo that answer as a new flow instead of a follow-up */
+  onSend: (query: string, separate?: number) => void
   onCancel: () => void
   byUrl: Map<string, Operation>
   /** Open the details (description, request, response) of a step's operation. */
@@ -159,7 +160,13 @@ export default function AiChat({
                     onClick={() => onSelect(t.id)}
                     title="Show this flow and its code"
                   >
-                    <p>Here is the flow ({t.result.plan.steps.length} steps):</p>
+                    {t.result.plan.steps.some((s) => s.earlier) ? (
+                      <p>
+                        Added to your flow; it now has {t.result.plan.steps.length} steps (earlier ones in grey):
+                      </p>
+                    ) : (
+                      <p>Here is the flow ({t.result.plan.steps.length} steps):</p>
+                    )}
                     <ol className="msg-steps">
                       {t.result.plan.steps.map((s) => {
                         const op = byUrl.get(s.url)
@@ -170,7 +177,7 @@ export default function AiChat({
                           v.file && `file: ${v.file}`
                         ].filter(Boolean)
                         return (
-                          <li key={s.id}>
+                          <li key={s.id} className={s.earlier ? 'earlier' : undefined}>
                             <span className="muted">{s.action} → </span>
                             {op ? (
                               <button
@@ -203,6 +210,18 @@ export default function AiChat({
                           <li key={i}>{n}</li>
                         ))}
                       </ul>
+                    )}
+                    {t.result.plan.steps.some((s) => s.earlier) && (
+                      <button
+                        className="link-btn msg-separate"
+                        disabled={busy}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSend(t.query, t.id)
+                        }}
+                      >
+                        Not a follow-up? Make this a separate flow
+                      </button>
                     )}
                     {t.id !== activeId && <div className="msg-show">Show this flow →</div>}
                   </div>

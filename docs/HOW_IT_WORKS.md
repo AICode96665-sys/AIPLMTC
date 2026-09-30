@@ -348,7 +348,7 @@ maps to one `ipcMain.handle` in `src/main/index.ts`.
 | `getCatalog()` | `catalog:get` | The whole catalog | `Catalog` |
 | `getRawData()` | `catalog:rawData` | The raw data tree (for details view) | `RawData` |
 | `aiStatus()` | `ai:status` | Start Ollama if needed; is the model installed? | `{ running, selected, model }` |
-| `aiPlan(query)` | `ai:plan` | **Run the whole pipeline + Java** (section 8) | `AiBuildResult` |
+| `aiPlan(query, continueFrom?)` | `ai:plan` | **Run the whole pipeline + Java** (section 8); `continueFrom` = the `planId` of the answer on screen, for follow-ups (8.11) | `AiBuildResult` (with `planId`) |
 | `aiCancel()` | `ai:cancel` | Abort the running request | – |
 | `aiPullModel()` | `ai:pullModel` | Download **the app's own** model | `{ ok }` / `{ ok:false, error }` |
 | `aiCancelPull()` | `ai:cancelPull` | Abort the download | – |
@@ -657,6 +657,63 @@ result looks like `{ from: 's2', fromPort: 'data', to: 's3', toPort: 'objects' }
   candidates: [every operation url that was considered] }
 ```
 
+The main process adds `planId` and the Java `code`, and keeps the plan in memory (the last
+50 flows, cleared when the catalog changes) so a follow-up can continue it.
+
+### 8.11 Follow-up requests ("check out this object")
+
+A request can continue the flow of the answer on screen:
+
+```
+1st: create object           → createItems
+2nd: check out this object   → createItems → checkout      (one flow, one Java program;
+                                                            checkout.objects ← createItems.output)
+```
+
+**How it works:**
+
+1. The window sends the new request plus the `planId` of the answer on screen (the newest
+   answer, or an older one the user clicked). It sends only the id, never a plan; the main
+   process looks up its own copy.
+2. **`isFollowUp(query)`** (`planner.ts`, plain code, no AI) decides whether the request
+   continues that flow. It does if:
+   - it **opens with a continuation word**: *then, now, also, next, and, after that,
+     afterwards, finally* ("then check it in"); or
+   - it **points at an object it never names itself**:
+     - *it / its / them / their / they* with no object named before it in the request
+       ("check it in" → follow-up; "Revise the item and set its description" → new flow);
+     - *this / that / these / those / same* followed by an object word that wasn't
+       mentioned earlier ("check out this object" → follow-up; "saved queries that are
+       available" → new flow, "that" isn't followed by an object).
+
+     Object words are Teamcenter nouns (item, part, dataset, revision, BOM, folder…,
+     singular or plural, one typo allowed). Names and IDs count as named objects too ("Revise
+     Frame, open its BOM", "item 000321").
+
+   Anything else starts a **new flow**, even while an answer is on screen.
+3. The new request goes through the normal pipeline (the 3-steps-per-request limit still applies).
+   Then the flows are joined: **earlier steps first** (marked `earlier`), then the new steps.
+   **Cleanup steps** of the earlier flow (e.g. save/close BOM window) **move to the very end**,
+   so a new BOM step still works inside the open window. Setup isn't repeated if it's already
+   in the flow. The whole flow is **wired again** and one Java program is written.
+4. **Total cap: 6 steps per flow** (`LIMITS.maxFlowSteps`), counting the steps the user asked
+   for; setup and cleanup added by the recipe book don't count. Going over gives: "Adding 1 step
+   would give your flow 7 steps; one flow can have up to 6. Start a new flow…".
+
+Real conversations (qwen2.5-coder:1.5b):
+
+| Requests | Result |
+|---|---|
+| *create object* → *check out this object* | `createItems → checkout`, wired |
+| *Create an item named Bracket* → *then set its description to Released for build* → *now check it in* | `createItems → setProperties → checkin`; "Bracket" and "Released for build" both in the Java |
+| *Add a child line to the BOM* → *then remove the child line* | `createBOMWindows → addOrUpdateChildren… → removeChildren… → saveBOMWindows → closeBOMWindows` |
+| *Revise an item* → *Delete a dataset* | two separate flows |
+| 3 steps → *then revise it and get its properties* → *then delete it* → *then check it out* | 3 → 5 → 6 steps, then the 6-step message |
+
+Fast checks without AI: `npm run check:followup` (`eval/followup.check.ts`, 25 requests).
+It also lists which of the 80 stand-alone test requests would read as follow-ups; only W3
+(*"What properties does this revision have?"*) does, and it really points back.
+
 ---
 
 ## 9. Writing the Java program
@@ -864,6 +921,10 @@ trademark / "not affiliated with Siemens" note.
 | Model missing | **ModelDownload** starts automatically; progress bar; *Cancel*; the terminal alternative |
 | Ready | Welcome text + 4 example chips, then the conversation |
 
+A follow-up answer (8.11) starts with "Added to your flow; it now has N steps", shows the
+earlier steps in grey, and has a link **"Not a follow-up? Make this a separate flow"**, which
+redoes that request as a new flow in the same place.
+
 Each answer lists the steps: `action → operationName` (a button that opens details),
 a **recipe** badge for recipe-book steps, the user's values under the step, and the notes.
 
@@ -1013,6 +1074,7 @@ scores 96% over all 80 tests but is roughly 5× slower and 5× bigger. Full tabl
 |---|---|---|
 | AI model | `qwen2.5-coder:1.5b` (Apache-2.0, ~1 GB) | `shared/edition.ts` |
 | Max actions per request | 3 (hard cap 8 before the limit check) | `edition.ts`, `planner.ts` `MAX_STEPS` |
+| Max steps per flow (with follow-ups) | 6 (setup/cleanup not counted) | `edition.ts` `maxFlowSteps` |
 | Candidates per action | 4 | `planner.ts` `OPTIONS_PER_STEP` |
 | AI pick kept if relevance ≥ | 85 (best match = 100) | `planner.ts` `BEST_MATCH_MARGIN` |
 | Java structure depth | 1, plus up to 4 more levels only where a user value goes | `edition.ts` `codegenDepth`, `java.ts` `VALUE_DEPTH` |
@@ -1042,8 +1104,10 @@ scores 96% over all 80 tests but is roughly 5× slower and 5× bigger. Full tabl
   clearer words.
 - **Wired inputs are `TODO`.** The code says which earlier output to use, but the mapping
   is not written for you.
-- Up to 3 steps per request; ID values (e.g. "000321") are not always extracted.
-- Not built: running against a live Teamcenter server, follow-up edits to a flow, saving flows.
+- Up to 3 steps per request and 6 per flow; ID values (e.g. "000321") are not always extracted.
+- Follow-ups can only **add** steps; "change step 2 to …" or "remove the last step" isn't
+  understood. Flows are kept only while the app is open.
+- Not built: running against a live Teamcenter server, saving flows.
 - Installer not code-signed yet.
 
 ---

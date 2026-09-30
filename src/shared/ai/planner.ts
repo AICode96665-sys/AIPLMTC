@@ -59,6 +59,8 @@ export interface PlanStep {
   /** How the operation was picked and the ranked alternatives (for checks and tests;
    *  not shown to the user). */
   choice: StepChoice
+  /** From an earlier request of the same flow (a follow-up added the other steps). */
+  earlier?: boolean
 }
 
 /** A candidate operation with its search relevance, 0–100 (100 = best match found). */
@@ -368,12 +370,66 @@ function looksLikeTeamcenter(query: string): boolean {
   return words.some((w) => DOMAIN_WORDS.some((d) => nearlyEqual(w, d)))
 }
 
+// ---------- follow-up requests ----------
+
+/** Words that open a request as a continuation ("THEN check it in", "NOW delete it"). */
+const CONTINUE_OPENERS = ['then', 'now', 'also', 'next', 'and', 'after that', 'afterwards', 'finally']
+/** Pronouns that point at an object named earlier ("check IT in", "set ITS name"). */
+const PRONOUNS = new Set(['it', 'its', 'them', 'their', 'they'])
+/** Words that point at an object when followed by one ("THIS object", "THAT dataset"). */
+const DEMONSTRATIVES = new Set(['this', 'that', 'these', 'those', 'same'])
+/** Teamcenter object words (singular). */
+const OBJECT_WORDS = new Set(
+  ('item part object dataset file document drawing revision rev bom structure assembly line window folder ' +
+    'relation project workflow process query property attribute task template form ecr ecn spec specification ' +
+    'report copy parent child one').split(' ')
+)
+/** Singular form, and the object word a one-typo spelling means ("revison" → revision). */
+const singular = (w: string): string => {
+  const s = w.replace(/ies$/, 'y').replace(/(s|x|ch|sh)es$/, '$1').replace(/([^s])s$/, '$1')
+  return OBJECT_WORDS.has(s) ? s : ([...OBJECT_WORDS].find((o) => nearlyEqual(s, o)) ?? s)
+}
+
+/** Does this request continue the flow on screen? Plain code, no AI. It does if it opens
+ *  with a continuation word ("then …", "now …"), or if it points at an object it never
+ *  names itself:
+ *  - "it / its / them" with no object named before it in the request
+ *    ("check it in" continues; "Revise the item and set its description" doesn't);
+ *  - "this / that / these / those / the same" + an object word not mentioned earlier
+ *    ("check out this object" continues; "saved queries that are available" doesn't).
+ *  Names and IDs count as named objects ("Revise Frame, open its BOM", "item 000321"). */
+export function isFollowUp(query: string): boolean {
+  const text = query.toLowerCase().replace(/\s+/g, ' ').trim()
+  if (CONTINUE_OPENERS.some((w) => text.startsWith(w + ' ') || text.startsWith(w + ','))) return true
+  const raw = query.split(/[^A-Za-z0-9-]+/).filter(Boolean)
+  const named = new Set<string>() // object words and names seen so far
+  for (let i = 0; i < raw.length; i++) {
+    const w = raw[i].toLowerCase()
+    const next = singular((raw[i + 1] ?? '').toLowerCase())
+    if (PRONOUNS.has(w) && named.size === 0) return true
+    if (DEMONSTRATIVES.has(w) && OBJECT_WORDS.has(next) && !named.has(next)) return true
+    const s = singular(w)
+    const isName = i > 0 && (/\d/.test(raw[i]) || /-/.test(raw[i]) || /^[A-Z]/.test(raw[i]))
+    if (OBJECT_WORDS.has(s)) named.add(s)
+    else if (isName) named.add(w)
+  }
+  return false
+}
+
+/** Steps of a flow the user asked for (not the setup/cleanup added around them). */
+const askedSteps = (steps: PlanStep[]): number => steps.filter((s) => s.choice.by !== 'setup' && s.choice.by !== 'cleanup').length
+
 // ---------- the pipeline ----------
 
 export interface PlanOptions {
   onProgress?: (message: string) => void
   /** Most actions allowed in one request (edition limit); unlimited if unset. */
   maxSteps?: number
+  /** The flow of the answer on screen: a follow-up request ("check out this object")
+   *  continues it instead of starting a new one. */
+  base?: AiPlan
+  /** Most steps one flow may have in total, over all its requests; unlimited if unset. */
+  maxTotalSteps?: number
 }
 
 export async function planFlow(
@@ -413,6 +469,18 @@ export async function planFlow(
       error:
         `This request has ${actions.length} steps (${list}). The app handles up to ${opts.maxSteps} steps per request — ` +
         'please split it into smaller requests (for example, one request per part of the job).',
+      candidates: []
+    }
+  }
+  const base = opts.base && isFollowUp(query) ? opts.base : undefined
+  if (base && opts.maxTotalSteps && askedSteps(base.steps) + actions.length > opts.maxTotalSteps) {
+    const had = askedSteps(base.steps)
+    return {
+      ok: false,
+      error:
+        `Adding ${actions.length} step${actions.length === 1 ? '' : 's'} would give your flow ${had + actions.length} steps; ` +
+        `one flow can have up to ${opts.maxTotalSteps}. Start a new flow for the next part of the job ` +
+        '(describe it without "this" or "it", e.g. "Check out an item").',
       candidates: []
     }
   }
@@ -498,11 +566,15 @@ export async function planFlow(
   // Build steps; merge an action into the previous step if it chose the same operation.
   progress(STAGES.assemble.doing)
   const byUrl = new Map(catalog.operations.map((o) => [o.url, o]))
-  const steps: PlanStep[] = []
+  // A follow-up continues the earlier flow: its steps come first (except cleanup such as
+  // "close BOM window", which must stay last), then the new steps, then the cleanup.
+  const earlier = (base?.steps ?? []).map((s) => ({ ...s, earlier: true }))
+  const earlierCleanup = earlier.filter((s) => s.choice.by === 'cleanup')
+  const steps: PlanStep[] = earlier.filter((s) => s.choice.by !== 'cleanup')
   const recipeOf = new Map<PlanStep, Recipe>()
   options.forEach((o, i) => {
     const prev = steps[steps.length - 1]
-    if (prev && prev.url === chosen[i]) {
+    if (prev && !prev.earlier && prev.url === chosen[i]) {
       prev.action += ` + ${o.action}`
       prev.values = {
         objectType: prev.values.objectType || o.values.objectType,
@@ -523,6 +595,8 @@ export async function planFlow(
     steps.push(step)
   })
   addSetupAndCleanup(steps, recipeOf, catalog, notes)
+  const lastWork = steps.reduce((last, s, i) => (s.choice.by === 'cleanup' ? last : i), -1)
+  for (const c of earlierCleanup) if (!steps.slice(lastWork + 1).some((s) => s.url === c.url)) steps.push(c)
   steps.forEach((st, i) => (st.id = `s${i + 1}`))
 
   // 4. Wire

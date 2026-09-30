@@ -15,7 +15,9 @@ const api = {
 
   // AI assistant
   aiStatus: (): Promise<AiStatus> => ipcRenderer.invoke('ai:status'),
-  aiPlan: (query: string): Promise<AiBuildResult> => ipcRenderer.invoke('ai:plan', query),
+  /** Plan a request; a follow-up ("check out this object") continues flow `continueFrom`. */
+  aiPlan: (query: string, continueFrom?: number): Promise<AiBuildResult> =>
+    ipcRenderer.invoke('ai:plan', query, continueFrom),
   aiCancel: (): Promise<void> => ipcRenderer.invoke('ai:cancel'),
   copyText: (text: string): Promise<void> => ipcRenderer.invoke('clipboard:write', text),
   /** Download the app's AI model through Ollama. */

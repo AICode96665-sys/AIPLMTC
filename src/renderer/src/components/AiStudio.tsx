@@ -71,15 +71,22 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
     return window.tc.onAiProgress((m) => setProgress((p) => (p[p.length - 1] === m ? p : p.concat(m))))
   }, [refresh])
 
+  /** Ask the AI. A follow-up ("check out this object") continues the flow on screen; the
+   *  back end decides whether the words point back. `separate` = start a new flow for an
+   *  answer that was wrongly taken as a follow-up (it replaces that answer). */
   const send = useCallback(
-    async (query: string) => {
+    async (query: string, separate?: number) => {
       if (busy) return
-      const id = Date.now()
-      setTurns((ts) => ts.concat({ id, query, result: null }))
+      const shown = turns.find((t) => t.id === activeId)?.result
+      const continueFrom = separate === undefined && shown?.ok ? shown.planId : undefined
+      const id = separate ?? Date.now()
+      setTurns((ts) =>
+        separate === undefined ? ts.concat({ id, query, result: null }) : ts.map((t) => (t.id === id ? { ...t, result: null } : t))
+      )
       setBusy(true)
       setProgress([])
       try {
-        const result = await window.tc.aiPlan(query)
+        const result = await window.tc.aiPlan(query, continueFrom)
         setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, result } : t)))
         if (result.ok) {
           setActiveId(id)
@@ -90,7 +97,7 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
         setBusy(false)
       }
     },
-    [busy]
+    [busy, turns, activeId]
   )
 
   const active = turns.find((t) => t.id === activeId)?.result

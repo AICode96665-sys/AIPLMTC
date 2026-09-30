@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, clipboard, ipcMain, dialog, session, shell } 
 import { join, basename } from 'node:path'
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { parseStructureJs, buildCatalog, type Catalog, type CatalogSummary, type LoadResult, type RawData } from '../shared'
-import { planFlow } from '../shared/ai/planner'
+import { planFlow, type AiPlan } from '../shared/ai/planner'
 import { planToJava } from '../shared/codegen/fromPlan'
 import { LIMITS } from '../shared/edition'
 import { STAGES } from '../shared/ai/progress'
@@ -154,6 +154,7 @@ ipcMain.handle('catalog:reset', () => {
   state.rawData = null
   state.catalog = null
   state.summary = null
+  flows.clear() // flows refer to the old catalog
   clearCache()
 })
 
@@ -188,7 +189,14 @@ const CODEGEN_DEPTH = LIMITS.codegenDepth
 
 ipcMain.handle('ai:status', () => aiStatus())
 
-ipcMain.handle('ai:plan', async (e, query: string): Promise<AiBuildResult> => {
+/** Flows made in this session, so a follow-up request can continue one. The window only
+ *  sends an id back, never a plan, so what gets continued is always our own data. */
+const flows = new Map<number, AiPlan>()
+let nextFlowId = 1
+const MAX_KEPT_FLOWS = 50
+
+ipcMain.handle('ai:plan', async (e, query: string, continueFrom?: number): Promise<AiBuildResult> => {
+  if (typeof query !== 'string') return { ok: false, error: 'Invalid request.', candidates: [] }
   if (!state.catalog || !state.rawData) return { ok: false, error: 'Load a catalog first.', candidates: [] }
   const { running, selected } = await aiStatus()
   if (!running) return { ok: false, error: 'Ollama is not running. Start Ollama and try again.', candidates: [] }
@@ -198,12 +206,17 @@ ipcMain.handle('ai:plan', async (e, query: string): Promise<AiBuildResult> => {
   try {
     const result = await planFlow(state.catalog, query, ollamaChat(selected, aiAbort.signal), {
       onProgress: (m) => e.sender.send('ai:progress', m),
-      maxSteps: LIMITS.maxSteps
+      maxSteps: LIMITS.maxSteps,
+      base: typeof continueFrom === 'number' ? flows.get(continueFrom) : undefined,
+      maxTotalSteps: LIMITS.maxFlowSteps
     })
     if (!result.ok) return result
     e.sender.send('ai:progress', STAGES.java.doing)
+    const planId = nextFlowId++
+    flows.set(planId, result.plan)
+    if (flows.size > MAX_KEPT_FLOWS) flows.delete(flows.keys().next().value!)
     const byUrl = new Map(state.catalog.operations.map((o) => [o.url, o]))
-    return { ...result, code: planToJava(result.plan, byUrl, state.rawData, CODEGEN_DEPTH) }
+    return { ...result, planId, code: planToJava(result.plan, byUrl, state.rawData, CODEGEN_DEPTH) }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err), candidates: [] }
   } finally {

@@ -117,8 +117,9 @@ npm run dev      # or: development mode with hot reload and DevTools
 1. **Load your catalog:** on first start, pick your `structure.js` (file or path). It is
    remembered for next time (**Change catalog** to switch).
 2. **Ask:** type what the program should do and press Enter. Up to **3 steps** per request,
-   e.g. *"Create an item named Bracket, then get its properties"*. Split bigger jobs into
-   several requests.
+   e.g. *"Create an item named Bracket, then get its properties"*. To add to the same
+   program, just continue: *"then check it in"*, *"check out this object"*. A flow can grow
+   to **6 steps**. A request that doesn't point back ("Delete a dataset") starts a new program.
 3. **Check the steps** in the chat. Click an operation name to see its description and full
    request/response structure.
 4. **Copy the Java** on the right. Values from your request are marked
@@ -135,6 +136,7 @@ npm run build          # production build → out/
 npm run dist           # Windows installer → dist/
 npm run typecheck      # type-check everything
 npm run check:recipes  # 63 fast recipe-matching checks (no AI needed)
+npm run check:followup # 25 fast follow-up detection checks (no AI needed)
 npm run eval -- --models qwen2.5-coder:1.5b --only Basic,Medium   # AI test suite (needs Ollama + a catalog)
 ```
 

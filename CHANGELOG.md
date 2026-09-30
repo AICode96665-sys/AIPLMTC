@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Follow-up requests:** continue the program on screen with e.g. *"check out this
+  object"* or *"then check it in"*; the new steps are added, the flow is re-wired and one Java
+  program is written. Detected automatically from the words (plain code, no AI); up to 6
+  steps per flow. Such answers say "Added to your flow" and offer "Make this a separate flow".
 - **Your values now reach the Java** even when they sit inside nested structures (e.g. the
   properties to set, a file name to upload). The generator goes deeper only along those
   paths. On the Basic + Medium tests, values in the Java went from 4 of 12 to 11 of 12.

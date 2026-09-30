@@ -225,7 +225,7 @@ Main improvements over time: pipeline redesign → recipe book → fixing an ove
 → matching recipes on the user's own words (held-out accuracy of the 7B reference model:
 63% → 83% → 80% → 97% over four rounds).
 
-Commands: `npm run check:recipes` (fast) · `npm run eval -- --models qwen2.5-coder:1.5b --only Basic,Medium`.
+Commands: `npm run check:recipes` and `npm run check:followup` (fast) · `npm run eval -- --models qwen2.5-coder:1.5b --only Basic,Medium`.
 
 ---
 
@@ -265,11 +265,12 @@ The eval uses a catalog at `~/Downloads/structure.js` by default (`--catalog <pa
 
 ## 10. Known limits
 
-- Up to 3 steps per request; long multi-step jobs must be split.
+- Up to 3 steps per request; a flow can grow to 6 steps with follow-up requests
+  ("check out this object"; see docs/HOW_IT_WORKS.md §8.11).
 - Java class names are inferred; verify them against your Teamcenter SDK.
 - ID values (e.g. "000321") are not always extracted.
-- Not built: live execution against a Teamcenter server, follow-up edits to a flow,
-  save/load of flows.
+- Not built: live execution against a Teamcenter server, changing or removing steps by
+  follow-up, save/load of flows.
 
 ## 11. Glossary
 
