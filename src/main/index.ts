@@ -2,10 +2,10 @@ import { app, BrowserWindow, Menu, clipboard, ipcMain, dialog, session, shell } 
 import { join, basename } from 'node:path'
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { parseStructureJs, buildCatalog, type Catalog, type CatalogSummary, type LoadResult, type RawData } from '../shared'
-import { planFlow } from '../shared/ai/planner'
+import { changeOperation, planFlow, type AiPlan, type PlanStep } from '../shared/ai/planner'
 import { planToJava } from '../shared/codegen/fromPlan'
 import { LIMITS } from '../shared/edition'
-import type { AiBuildResult } from '../shared/ai/status'
+import type { AiBuildResult, AiChangeResult } from '../shared/ai/status'
 import { ensureOllamaRunning, listModels, ollamaChat, pullModel, type AiStatus } from './ollama'
 
 // Note: this app does NOT bundle or redistribute any Teamcenter catalog data.
@@ -211,6 +211,52 @@ ipcMain.handle('ai:plan', async (e, query: string): Promise<AiBuildResult> => {
 })
 
 ipcMain.handle('ai:cancel', () => aiAbort?.abort())
+
+/** Rebuild a plan sent back by the window from plain, checked values only. */
+function sanitizePlan(p: unknown): AiPlan | null {
+  const str = (v: unknown, max = 2000): string => (typeof v === 'string' ? v.slice(0, max) : '')
+  const plan = p as { steps?: unknown }
+  if (!plan || !Array.isArray(plan.steps) || plan.steps.length === 0 || plan.steps.length > 20) return null
+  const steps: PlanStep[] = plan.steps.map((raw): PlanStep => {
+    const s = (raw ?? {}) as Record<string, any>
+    const v = (s.values ?? {}) as Record<string, any>
+    const c = (s.choice ?? {}) as Record<string, any>
+    const by = ['recipe', 'setup', 'cleanup', 'only', 'ai', 'top', 'user'].includes(c.by) ? c.by : 'user'
+    return {
+      id: str(s.id, 20),
+      url: str(s.url, 300),
+      action: str(s.action, 300),
+      source: s.source === 'recipe' ? 'recipe' : 'search',
+      values: {
+        objectType: str(v.objectType),
+        file: str(v.file),
+        properties: (Array.isArray(v.properties) ? v.properties : [])
+          .slice(0, 50)
+          .map((q: any) => ({ name: str(q?.name, 200), value: str(q?.value) }))
+      },
+      choice: {
+        by,
+        matched: c.matched === undefined ? undefined : str(c.matched, 300),
+        forAction: c.forAction === undefined ? undefined : str(c.forAction, 300),
+        options: (Array.isArray(c.options) ? c.options : [])
+          .slice(0, 10)
+          .map((o: any) => ({ url: str(o?.url, 300), score: Number(o?.score) || 0 }))
+      }
+    }
+  })
+  return { explanation: '', steps, connections: [] }
+}
+
+// "Change operation" in the chat: swap one step's operation, re-wire, regenerate the Java.
+ipcMain.handle('ai:changeOperation', (_e, rawPlan: unknown, stepId: unknown, url: unknown): AiChangeResult => {
+  if (!state.catalog || !state.rawData) return { ok: false, error: 'Load a catalog first.' }
+  const plan = sanitizePlan(rawPlan)
+  if (!plan || typeof stepId !== 'string' || typeof url !== 'string') return { ok: false, error: 'Invalid request.' }
+  const next = changeOperation(state.catalog, plan, stepId, url)
+  if (!next) return { ok: false, error: 'That operation is not in your catalog.' }
+  const byUrl = new Map(state.catalog.operations.map((o) => [o.url, o]))
+  return { ok: true, plan: next, code: planToJava(next, byUrl, state.rawData, CODEGEN_DEPTH) }
+})
 
 // --- Download the app's AI model through Ollama ("Download AI model" button) ---
 // Only the app's own model can be downloaded; the UI cannot ask for another name.

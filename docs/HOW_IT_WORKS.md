@@ -120,6 +120,7 @@ src/renderer/                 ── The window (React) ──
     CatalogLoader.tsx         "Load your structure.js" screen
     AiStudio.tsx              Main screen: chat left, Java right, operation details drawer
     AiChat.tsx                Chat column: setup states, answers, input box
+    StepPanel.tsx             "Why?" and "Change operation" panel under a step
     ModelDownload.tsx         Model download with progress bar and Cancel
     JavaCodeView.tsx          Read-only CodeMirror Java viewer (highlighting, line select)
     SchemaView.tsx            Tree view of an operation's request/response structure
@@ -349,6 +350,7 @@ maps to one `ipcMain.handle` in `src/main/index.ts`.
 | `aiStatus()` | `ai:status` | Start Ollama if needed; is the model installed? | `{ running, selected, model }` |
 | `aiPlan(query)` | `ai:plan` | **Run the whole pipeline + Java** (section 8) | `AiBuildResult` |
 | `aiCancel()` | `ai:cancel` | Abort the running request | – |
+| `aiChangeOperation(plan, stepId, url)` | `ai:changeOperation` | Use another operation for one step, re-wire, new Java (section 8.11) | `{ ok, plan, code }` / `{ ok:false, error }` |
 | `aiPullModel()` | `ai:pullModel` | Download **the app's own** model | `{ ok }` / `{ ok:false, error }` |
 | `aiCancelPull()` | `ai:cancelPull` | Abort the download | – |
 | `copyText(text)` | `clipboard:write` | Copy to clipboard (strings only, max 5 MB) | – |
@@ -596,10 +598,29 @@ every action came from a recipe or had one option, **this call is skipped** enti
 
 ### 8.7 [G] Build the steps
 
-Each action becomes a `PlanStep { id, url, action, values, source }`. If an action chose
-**the same operation as the previous step**, the two are merged: the actions are joined
-with "+", and the properties are combined. For example, "set name" + "set description"
+Each action becomes a `PlanStep { id, url, action, values, source, choice }`. If an action
+chose **the same operation as the previous step**, the two are merged: the actions are
+joined with "+", and the properties are combined. For example, "set name" + "set description"
 becomes one `setProperties`.
+
+**`choice`** records *how* the operation was picked, for the chat's **Why?** and **Change**
+buttons (section 11):
+
+| `choice.by` | Meaning |
+|---|---|
+| `recipe` | From the recipe book; `matched` = the words that matched it |
+| `setup` / `cleanup` | Added around a recipe step; `forAction` = the step that needs it |
+| `only` | The search found just one match |
+| `ai` | The AI chose among the search matches |
+| `top` | The AI gave no usable answer, so the best search match was used |
+| `user` | The user picked it with **Change** |
+
+`choice.options` holds the search matches for the action, best first, each with a
+relevance of 0–100 (the best match = 100). The search runs for recipe steps too, so they
+also have alternatives to show.
+
+Property names are normalised in `cleanValues`: the plain words the model sometimes uses
+(`name`, `description`, `desc`…) become the Teamcenter names `object_name` / `object_desc`.
 
 ### 8.8 [H] Setup and cleanup (`addSetupAndCleanup`)
 
@@ -625,11 +646,26 @@ result looks like `{ from: 's2', fromPort: 'data', to: 's3', toPort: 'objects' }
 
 ```ts
 { ok: true,
-  plan: { explanation: "Check out → set properties (description = \"Released for build\") → check in",
+  plan: { explanation: "Check out → set properties (object_desc = \"Released for build\") → check in",
           steps: [...], connections: [...] },
   notes: ["Added createBOMWindows before …", "No operation in your catalog matches …"],
   candidates: [every operation url that was considered] }
 ```
+
+### 8.11 Change operation (after the answer)
+
+When the user picks another operation for a step, the window sends the plan back with
+`ai:changeOperation(plan, stepId, url)`. The main process:
+
+1. **rebuilds the plan from checked values only** (`sanitizePlan` in `index.ts`: known
+   fields, strings only, size limits, at most 20 steps). It doesn't trust what the window sent;
+2. `changeOperation()` (`planner.ts`) checks that the new operation and every step's
+   operation exist in the catalog, swaps the operation (`choice.by = 'user'`, the recipe
+   badge goes away), and **wires the whole flow again**;
+3. regenerates the Java and returns `{ plan, code }`.
+
+The step keeps its values, so e.g. "Released for build" is still filled in after a change.
+Setup and cleanup steps stay as they are; they can be changed the same way.
 
 ---
 
@@ -668,7 +704,8 @@ inputs/outputs ports, values) and each connection into a `GenEdge`. Then it call
 
 **`buildValue`** builds a structure object:
 - primitive → default value; type already being built (a cycle) → `null /* recursive type */`;
-  deeper than `maxDepth` (1) → `null`; type with no fields → `null`;
+  deeper than `maxDepth` (1) → `null`, **unless one of the user's values goes in there**
+  (below); type with no fields → `null`;
 - otherwise `Cls v = new Cls();` and one assignment per field (user value, default, or
   nested build);
 - arrays: build one element and wrap it: `Cls[] arr = new Cls[] { v };`;
@@ -686,6 +723,21 @@ inputs/outputs ports, values) and each connection into a `GenEdge`. Then it call
 | `fileName` | the file |
 | `values` (String[]) | property `search_value` → `new String[] { "…" }` |
 | any other | property with the same name without `_` (`process_template` → `processTemplate`) |
+
+**Going deeper only where your values go** (`holdsValue`): normally structures are built
+one level deep, which keeps the program short. But some values sit deeper. For example,
+the properties to set are inside `setProperties` → `PropInfo` → `vecNameVal`, and a file
+name is inside the upload structures. So before giving up on a deeper structure, the
+generator checks whether one of the step's values would land in it, looking at most
+4 more levels down (`VALUE_DEPTH`). If so, it builds that one path and leaves everything
+else at `null`. Below the normal depth only fields made for a specific value are filled:
+**property lists** (name/values pairs), **property maps**, **`fileName`** and search
+**`values`**. Generic `name` / `type` / `description` fields that deep down belong to other
+objects (e.g. extended attributes), so they are never filled there.
+
+Measured on the 35 Basic + Medium test requests: property values and file names that reach
+the Java went from **4 of 12 to 11 of 12**. The one left is a misreading by the model: a
+"file" that isn't a file name, for an operation that has no file field.
 
 **In the viewer**, `// TODO` lines are highlighted amber (still to fill in) and
 `// from your request` green (taken from the user's words).
@@ -721,7 +773,7 @@ Request: *Check out an object, change its description to Released for build, the
 
 ```
 s1 Core-2006-03-Reservation/checkout             (recipe)
-s2 Core-2010-09-DataManagement/setProperties     (recipe)  description = "Released for build"
+s2 Core-2010-09-DataManagement/setProperties     (recipe)  object_desc = "Released for build"
 s3 Core-2006-03-Reservation/checkin              (recipe)
 connections: s2.data → s3.objects
 ```
@@ -735,10 +787,21 @@ connections: s2.data → s3.objects
             ServiceData checkinResponse = reservationService.checkin(checkinObjects);
 ```
 
-⚠️ This trace also shows a gap (section 17): the chat shows
-`description = "Released for build"`, but the value does **not** reach the Java. The property
-list inside `setProperties` is one level deeper than the depth-1 generator builds, and the
-model named the property `description` instead of `object_desc`.
+The model named the property `description`; `cleanValues` turns it into `object_desc`.
+Because the value has to go into the property list one level deeper, the generator
+builds that path (section 9):
+
+```java
+            PropInfo setPropertiesInfoItem = new PropInfo(); // PropInfo[] element
+            setPropertiesInfoItem.object = null; // BusinessObject
+            NameValueStruct1 nameValueStruct11 = new NameValueStruct1(); // from your request
+            nameValueStruct11.name = "object_desc";
+            nameValueStruct11.values = new String[] { "Released for build" };
+            NameValueStruct1[] nameValueStruct12 = new NameValueStruct1[] { nameValueStruct11 };
+            setPropertiesInfoItem.vecNameVal = nameValueStruct12; // NameValueStruct1[]
+```
+
+(Before this was added, the value was shown in the chat but missing from the Java.)
 
 ### 10.2 Setup and cleanup added automatically (1 AI call, 1.4 s)
 
@@ -767,8 +830,10 @@ Request: *Export an object to PLM XML*
 - Choose: the 1.5B model picked `exportObjectsToOfflinePackage`, **the wrong one**.
 
 The design keeps the answer inside the real candidates, but a small model can still pick
-the wrong candidate. That is why the chat shows every step (click it to read its
-description) and why the Java is a starting point to review.
+the wrong candidate. The chat therefore marks such a step **⚠ check** (the AI didn't choose
+the best search match). **Why?** shows the ranking (`exportObjectsToPLMXML` 100 · best match,
+… `exportObjectsToOfflinePackage` 81 · in use), and **Change** lets the user pick
+`exportObjectsToPLMXML` with one click; the flow is re-wired and the Java rewritten.
 
 ### 10.4 Rejected requests
 
@@ -810,7 +875,16 @@ trademark / "not affiliated with Siemens" note.
 | Ready | Welcome text + 4 example chips, then the conversation |
 
 Each answer lists the steps: `action → operationName` (a button that opens details),
-a **recipe** badge for recipe-book steps, the user's values under the step, and the notes.
+a **recipe** badge for recipe-book steps, **your choice** after a change, **⚠ check** when the
+AI didn't pick the best search match, the user's values under the step, and the notes.
+
+Every step has two small buttons, which open a panel under the step (**StepPanel.tsx**):
+- **Why?** explains in plain words how the operation was picked (recipe book and the
+  matching words, added setup/cleanup and for which step, only match, AI choice, or your
+  choice) and lists the search matches with relevance bars, with "best match" and "in use" tags.
+- **Change** lists the best matches as clickable rows, plus a box to **search all
+  operations** in the catalog (the same search as the pipeline, run in the window). Picking one
+  calls `ai:changeOperation` (section 8.11) and updates the answer and the Java.
 Older answers can be clicked to show their code again. Enter sends; Shift+Enter adds a new
 line; the input is disabled until the AI is ready.
 
@@ -927,7 +1001,9 @@ phrases, each with the recipe it must pick (e.g. "remove child line" → remove 
 **not tuned on**. That batch gives the honest real-world number.
 
 **Current numbers** (Basic + Medium, what the app is limited to): the app's model
-`qwen2.5-coder:1.5b` scores **91%** at about 2 s per request. The larger 7B reference model
+`qwen2.5-coder:1.5b` scores **89%** (47/53; 29 of 35 tests fully right) at about 2 s per
+request; the previous run scored 91%, and the one difference (Z6) comes from the model
+now answering that request with one action instead of two, the same with the old code. The larger 7B reference model
 scores 96% over all 80 tests but is roughly 5× slower and 5× bigger. Full table:
 [eval/RESULTS.md](../eval/RESULTS.md).
 
@@ -942,7 +1018,7 @@ scores 96% over all 80 tests but is roughly 5× slower and 5× bigger. Full tabl
 | AI model | `qwen2.5-coder:1.5b` (Apache-2.0, ~1 GB) | `shared/edition.ts` |
 | Max actions per request | 3 (hard cap 8 before the limit check) | `edition.ts`, `planner.ts` `MAX_STEPS` |
 | Candidates per action | 4 | `planner.ts` `OPTIONS_PER_STEP` |
-| Java structure depth | 1 | `edition.ts` `codegenDepth` |
+| Java structure depth | 1, plus up to 4 more levels only where a user value goes | `edition.ts` `codegenDepth`, `java.ts` `VALUE_DEPTH` |
 | AI temperature / context | 0 / 8192 tokens | `ollama.ts` |
 | Chat timeout | 5 minutes | `ollama.ts` |
 | Status check timeout | 2.5 s | `ollama.ts` |
@@ -959,17 +1035,14 @@ scores 96% over all 80 tests but is roughly 5× slower and 5× bigger. Full tabl
 
 ## 17. Known gaps
 
-- **Values inside nested structures don't reach the Java.** With depth 1, fields one level
-  deeper (e.g. the property list inside `setProperties`) are left `null`. The chat shows
-  the value, but the Java doesn't contain it (example 10.1). The model also sometimes uses
-  the plain word (`description`) instead of the Teamcenter name (`object_desc`).
 - **Imports are incomplete.** The program imports `Connection`, `ModelObject`,
   `ServiceData` and `SessionService`. Service classes and request/response structure classes
   are written by simple name and still need their imports from your SDK.
 - **Class names are inferred** from the catalog; verify package and class names against
   your Teamcenter SDK.
-- **The small model can pick the wrong candidate** when there is no recipe (example 10.3).
-  Always read the steps.
+- **The small model can pick the wrong candidate** when there is no recipe (example 10.3),
+  or miss an action. Always read the steps; use **Why?** / **Change** to fix a step. (A
+  missing step can't be added yet; ask again with clearer words.)
 - **Wired inputs are `TODO`.** The code says which earlier output to use, but the mapping
   is not written for you.
 - Up to 3 steps per request; ID values (e.g. "000321") are not always extracted.

@@ -18,14 +18,17 @@ import { matchRecipe, resolveOp, type Recipe } from './recipes'
 /** The user's words beat the model's paraphrase: "Lock an object" must mean check
  *  out even if the model rewrote it as "set properties". Only words that really
  *  appear in the request are used, so an invented quote can't steer anything. */
-function recipeFor(query: string, quote: string, action: string): Recipe | null {
+function recipeFor(query: string, quote: string, action: string): { recipe: Recipe; matched: string } | null {
   const said = new Set(query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean))
   const own = quote
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((w) => said.has(w))
     .join(' ')
-  return (own && matchRecipe(own)) || matchRecipe(action)
+  const fromOwn = own ? matchRecipe(own) : null
+  if (fromOwn) return { recipe: fromOwn, matched: own }
+  const fromAction = matchRecipe(action)
+  return fromAction ? { recipe: fromAction, matched: action } : null
 }
 
 export interface ChatMessage {
@@ -52,6 +55,28 @@ export interface PlanStep {
   values: StepValues
   /** Where the operation came from: the built-in recipe book or catalog search. */
   source: 'recipe' | 'search'
+  /** How the operation was picked and the alternatives ("Why?" and "Change" in the chat). */
+  choice: StepChoice
+}
+
+/** A candidate operation with its search relevance, 0–100 (100 = best match found). */
+export interface RankedOption {
+  url: string
+  score: number
+}
+
+export interface StepChoice {
+  /** recipe = recipe book · setup/cleanup = added around a recipe step ·
+   *  only = the one search match · ai = the AI chose among the search matches ·
+   *  top = the AI gave no usable answer, so the best search match was used ·
+   *  user = chosen by the user with "Change operation" */
+  by: 'recipe' | 'setup' | 'cleanup' | 'only' | 'ai' | 'top' | 'user'
+  /** recipe: the words that matched it */
+  matched?: string
+  /** setup/cleanup: the step that needs it */
+  forAction?: string
+  /** Search matches for this action, best first (for recipe steps: other matches). */
+  options: RankedOption[]
 }
 
 export interface PlanConnection {
@@ -159,6 +184,18 @@ async function askJson<T>(chat: ChatFn, messages: ChatMessage[], schema: object)
   return null
 }
 
+/** Plain words the model sometimes uses instead of the Teamcenter property name. */
+const PROPERTY_NAMES: Record<string, string> = {
+  name: 'object_name',
+  object_name: 'object_name',
+  objectname: 'object_name',
+  description: 'object_desc',
+  desc: 'object_desc',
+  object_description: 'object_desc',
+  object_desc: 'object_desc'
+}
+const propertyName = (n: string): string => PROPERTY_NAMES[n.toLowerCase().replace(/\s+/g, '_')] ?? n
+
 /** Keep only values the user actually wrote — small models like to invent
  *  placeholders ("object_name_value", "Revised Item"). */
 function cleanValues(a: RawAction, query: string): StepValues {
@@ -169,7 +206,7 @@ function cleanValues(a: RawAction, query: string): StepValues {
   return {
     objectType: said(objectType) ? objectType : '',
     properties: (a.properties ?? [])
-      .map((p) => ({ name: (p.name ?? '').trim(), value: (p.value ?? '').trim() }))
+      .map((p) => ({ name: propertyName((p.name ?? '').trim()), value: (p.value ?? '').trim() }))
       .filter((p) => p.name && said(p.value)),
     file: said(file) ? file : ''
   }
@@ -232,6 +269,17 @@ interface Option {
   values: StepValues
   ops: Operation[]
   recipe?: Recipe
+  /** recipe: the words that matched it */
+  matched?: string
+  /** search matches with relevance (0–100), best first */
+  ranked: RankedOption[]
+}
+
+/** Search matches for an action, with relevance relative to the best one (100). */
+function rankedSearch(catalog: Catalog, action: string): { ops: Operation[]; ranked: RankedOption[] } {
+  const hits = retrieveOperations(catalog, action, OPTIONS_PER_STEP)
+  const top = hits[0]?.score || 1
+  return { ops: hits.map((h) => h.op), ranked: hits.map((h) => ({ url: h.op.url, score: Math.round((100 * h.score) / top) })) }
 }
 
 const NO_VALUES: StepValues = { objectType: '', properties: [], file: '' }
@@ -241,17 +289,28 @@ const NO_VALUES: StepValues = { objectType: '', properties: [], file: '' }
  *  user's flow already has them in the right place. */
 function addSetupAndCleanup(steps: PlanStep[], recipeOf: Map<PlanStep, Recipe>, catalog: Catalog, notes: string[]): void {
   const cleanup: Operation[] = []
+  const cleanupFor = new Map<Operation, string>()
   for (const [step, recipe] of recipeOf) {
     for (const spec of recipe.before ?? []) {
       const op = resolveOp(catalog, spec)
       const at = steps.indexOf(step)
       if (!op || steps.slice(0, at).some((s) => s.url === op.url)) continue
-      steps.splice(at, 0, { id: '', url: op.url, action: `${op.name} (needed first)`, values: NO_VALUES, source: 'recipe' })
+      steps.splice(at, 0, {
+        id: '',
+        url: op.url,
+        action: `${op.name} (needed first)`,
+        values: NO_VALUES,
+        source: 'recipe',
+        choice: { by: 'setup', forAction: step.action, options: [{ url: op.url, score: 100 }] }
+      })
       notes.push(`Added ${op.name} before "${step.action}" (required, from the recipe book).`)
     }
     for (const spec of recipe.after ?? []) {
       const op = resolveOp(catalog, spec)
-      if (op && !cleanup.includes(op)) cleanup.push(op)
+      if (op && !cleanup.includes(op)) {
+        cleanup.push(op)
+        cleanupFor.set(op, step.action)
+      }
     }
   }
   for (const op of cleanup) {
@@ -260,7 +319,14 @@ function addSetupAndCleanup(steps: PlanStep[], recipeOf: Map<PlanStep, Recipe>, 
     const needers = [...recipeOf].filter(([, r]) => r.after?.length).map(([s]) => steps.indexOf(s))
     const lastRecipeStep = Math.max(...needers)
     if (steps.slice(lastRecipeStep + 1).some((s) => s.url === op.url)) continue
-    steps.push({ id: '', url: op.url, action: `${op.name} (cleanup)`, values: NO_VALUES, source: 'recipe' })
+    steps.push({
+      id: '',
+      url: op.url,
+      action: `${op.name} (cleanup)`,
+      values: NO_VALUES,
+      source: 'recipe',
+      choice: { by: 'cleanup', forAction: cleanupFor.get(op), options: [{ url: op.url, score: 100 }] }
+    })
     notes.push(`Added ${op.name} at the end (required, from the recipe book).`)
   }
 }
@@ -355,18 +421,19 @@ export async function planFlow(
   for (const a of actions) {
     const action = a.action!.trim()
     const values = cleanValues(a, query)
-    const recipe = recipeFor(query, a.quote ?? '', action)
+    const found = recipeFor(query, a.quote ?? '', action)
+    const recipe = found?.recipe
     const recipeOps = recipe ? recipe.steps.map((spec) => resolveOp(catalog, spec)).filter((o): o is Operation => !!o) : []
+    const { ops, ranked } = rankedSearch(catalog, action)
     if (recipe && recipeOps.length) {
-      recipeOps.forEach((op) => options.push({ action, values, ops: [op], recipe }))
+      recipeOps.forEach((op) => options.push({ action, values, ops: [op], recipe, matched: found!.matched, ranked }))
       continue
     }
-    const ops = retrieveOperations(catalog, action, OPTIONS_PER_STEP).map((s) => s.op)
     if (ops.length === 0) {
       notes.push(`No operation in your catalog matches "${action}" — step left out.`)
       continue
     }
-    options.push({ action, values, ops })
+    options.push({ action, values, ops, ranked })
   }
   // A "type" that equals a value the user gave (e.g. the name "Test part") is
   // the model mixing up fields, not a real object type — drop it.
@@ -389,6 +456,7 @@ export async function planFlow(
 
   // 3. Choose one operation per action (skip the model when there's no choice)
   const chosen: string[] = options.map((o) => o.ops[0].url)
+  const chosenBy: StepChoice['by'][] = options.map((o) => (o.recipe ? 'recipe' : o.ops.length > 1 ? 'top' : 'only'))
   if (options.some((o) => o.ops.length > 1)) {
     progress('Choosing operations…')
     const properties: Record<string, object> = {}
@@ -411,7 +479,10 @@ export async function planFlow(
     )
     options.forEach((o, i) => {
       const pick = picks?.[`step${i + 1}`]
-      if (pick && o.ops.some((op) => op.url === pick)) chosen[i] = pick
+      if (pick && o.ops.some((op) => op.url === pick)) {
+        chosen[i] = pick
+        chosenBy[i] = 'ai'
+      }
     })
   }
 
@@ -430,7 +501,14 @@ export async function planFlow(
       }
       return
     }
-    const step: PlanStep = { id: '', url: chosen[i], action: o.action, values: o.values, source: o.recipe ? 'recipe' : 'search' }
+    const step: PlanStep = {
+      id: '',
+      url: chosen[i],
+      action: o.action,
+      values: o.values,
+      source: o.recipe ? 'recipe' : 'search',
+      choice: { by: chosenBy[i], matched: o.matched, options: o.ranked }
+    }
     if (o.recipe) recipeOf.set(step, o.recipe)
     steps.push(step)
   })
@@ -438,11 +516,26 @@ export async function planFlow(
   steps.forEach((st, i) => (st.id = `s${i + 1}`))
 
   // 4. Wire
-  const connections = wire(steps, byUrl)
+  return { ok: true, plan: finishPlan(steps, byUrl), notes, candidates }
+}
 
+/** Wire the steps and write the one-line explanation. */
+function finishPlan(steps: PlanStep[], byUrl: Map<string, Operation>): AiPlan {
   const explanation = steps
     .map((s) => `${s.action}${describeValues(s.values)}`)
     .join(' → ')
     .replace(/^./, (c) => c.toUpperCase())
-  return { ok: true, plan: { explanation, steps, connections }, notes, candidates }
+  return { explanation, steps, connections: wire(steps, byUrl) }
+}
+
+/** "Change operation": use `url` for step `stepId`, then wire the flow again.
+ *  Returns null if the step or the operation doesn't exist. */
+export function changeOperation(catalog: Catalog, plan: AiPlan, stepId: string, url: string): AiPlan | null {
+  const byUrl = new Map(catalog.operations.map((o) => [o.url, o]))
+  if (!byUrl.has(url) || !plan.steps.some((s) => s.id === stepId)) return null
+  if (plan.steps.some((s) => !byUrl.has(s.url))) return null
+  const steps = plan.steps.map((s) =>
+    s.id === stepId ? { ...s, url, source: 'search' as const, choice: { ...s.choice, by: 'user' as const } } : s
+  )
+  return finishPlan(steps, byUrl)
 }

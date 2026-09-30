@@ -92,6 +92,23 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
     [busy]
   )
 
+  /** "Change operation": re-wire the flow in the back end and show the new Java. */
+  const changeOperation = useCallback(
+    async (turnId: number, stepId: string, url: string): Promise<string | null> => {
+      const turn = turns.find((t) => t.id === turnId)
+      if (!turn?.result?.ok) return 'This answer can no longer be changed.'
+      const r = await window.tc.aiChangeOperation(turn.result.plan, stepId, url)
+      if (!r.ok) return r.error
+      setTurns((ts) =>
+        ts.map((t) => (t.id === turnId && t.result?.ok ? { ...t, result: { ...t.result, plan: r.plan, code: r.code } } : t))
+      )
+      setActiveId(turnId)
+      setCopied(null)
+      return null
+    },
+    [turns]
+  )
+
   const active = turns.find((t) => t.id === activeId)?.result
   const activeOk = active?.ok ? active : null
 
@@ -133,6 +150,8 @@ export default function AiStudio({ catalog, rawData }: { catalog: Catalog; rawDa
         onCancel={() => window.tc.aiCancel()}
         byUrl={byUrl}
         onShowOperation={setDetailsOp}
+        catalog={catalog}
+        onChangeOperation={changeOperation}
       />
 
       <div className="studio-main">

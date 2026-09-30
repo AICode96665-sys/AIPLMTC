@@ -215,7 +215,7 @@ Results (Basic + Medium, 35 tests, what the app is limited to):
 
 | Model | License | Score | Avg time | Size |
 |---|---|---|---|---|
-| **qwen2.5-coder:1.5b** (used) | Apache-2.0 | **91%** | 2.3 s | 1.0 GB |
+| **qwen2.5-coder:1.5b** (used) | Apache-2.0 | **89%** | 1.8 s | 1.0 GB |
 | gemma3:4b | Gemma terms | 92% | 13.6 s | 3.3 GB |
 | phi4-mini | MIT | 85% | 4.7 s | 2.5 GB |
 | llama3.2:3b | Llama Community | 79% | 4.0 s | 2.0 GB |

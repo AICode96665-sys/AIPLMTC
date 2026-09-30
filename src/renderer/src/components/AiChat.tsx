@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AiBuildResult, AiStatus } from '@shared/ai/status'
-import type { Operation } from '@shared/index'
+import type { Catalog, Operation } from '@shared/index'
 import ModelDownload from './ModelDownload'
+import StepPanel from './StepPanel'
 
 export interface Turn {
   id: number
@@ -30,7 +31,9 @@ export default function AiChat({
   onSend,
   onCancel,
   byUrl,
-  onShowOperation
+  onShowOperation,
+  catalog,
+  onChangeOperation
 }: {
   status: AiStatus | null
   checking: boolean
@@ -45,8 +48,32 @@ export default function AiChat({
   byUrl: Map<string, Operation>
   /** Open the details (description, request, response) of a step's operation. */
   onShowOperation: (op: Operation) => void
+  catalog: Catalog
+  /** Use `url` for one step of an answer; resolves to an error message or null. */
+  onChangeOperation: (turnId: number, stepId: string, url: string) => Promise<string | null>
 }): JSX.Element {
   const [draft, setDraft] = useState('')
+  /** The open "Why?" / "Change operation" panel, if any. */
+  const [panel, setPanel] = useState<{ turnId: number; stepId: string; mode: 'why' | 'change' } | null>(null)
+  const [changing, setChanging] = useState(false)
+  const [changeError, setChangeError] = useState<string | null>(null)
+
+  const togglePanel = (turnId: number, stepId: string, mode: 'why' | 'change'): void => {
+    setChangeError(null)
+    setPanel((p) => (p && p.turnId === turnId && p.stepId === stepId && p.mode === mode ? null : { turnId, stepId, mode }))
+  }
+
+  const pick = async (turnId: number, stepId: string, url: string): Promise<void> => {
+    setChanging(true)
+    setChangeError(null)
+    try {
+      const err = await onChangeOperation(turnId, stepId, url)
+      if (err) setChangeError(err)
+      else setPanel(null)
+    } finally {
+      setChanging(false)
+    }
+  }
   const listRef = useRef<HTMLDivElement>(null)
 
   // keep the newest message in view
@@ -180,7 +207,51 @@ export default function AiChat({
                                 recipe
                               </span>
                             )}
+                            {s.choice.by === 'user' && (
+                              <span className="msg-recipe msg-user" title="You chose this operation">
+                                your choice
+                              </span>
+                            )}
+                            {s.choice.by === 'ai' && s.choice.options[0] && s.choice.options[0].url !== s.url && (
+                              <span className="msg-check" title="The AI did not choose the best search match">
+                                ⚠ check
+                              </span>
+                            )}
+                            <span className="step-actions">
+                              <button
+                                className="link-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onSelect(t.id)
+                                  togglePanel(t.id, s.id, 'why')
+                                }}
+                              >
+                                Why?
+                              </button>
+                              <button
+                                className="link-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onSelect(t.id)
+                                  togglePanel(t.id, s.id, 'change')
+                                }}
+                              >
+                                Change
+                              </button>
+                            </span>
                             {given.length > 0 && <div className="msg-values">{given.join(' · ')}</div>}
+                            {panel && panel.turnId === t.id && panel.stepId === s.id && (
+                              <StepPanel
+                                mode={panel.mode}
+                                step={s}
+                                catalog={catalog}
+                                byUrl={byUrl}
+                                busy={changing}
+                                error={changeError}
+                                onPick={(url) => pick(t.id, s.id, url)}
+                                onClose={() => setPanel(null)}
+                              />
+                            )}
                           </li>
                         )
                       })}

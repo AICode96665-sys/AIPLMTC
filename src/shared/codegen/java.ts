@@ -152,6 +152,9 @@ function topoSort(nodes: GenNode[], edges: GenEdge[]): GenNode[] {
 
 const noFields: FieldResolver = () => []
 
+/** How many levels beyond `maxDepth` the generator may go to place a user value. */
+const VALUE_DEPTH = 4
+
 export function generateJava(
   nodes: GenNode[],
   edges: GenEdge[],
@@ -206,6 +209,38 @@ export function generateJava(
     fields.some((f) => f.name === 'name' && javaBase(f.type) === 'String' && !f.type.includes('[]')) &&
     fields.some((f) => f.name === 'values' && javaType(f.type) === 'String[]')
 
+  /** Below the normal depth only fields made for a specific value are filled: a file
+   *  name or search values. Generic name/type/description fields that deep down belong
+   *  to other objects (e.g. extended attributes), so they are left alone. */
+  const deepGiven = (fieldName: string, typeStr: string): string | null =>
+    ['filename', 'values'].includes(fieldName.toLowerCase()) ? givenValue(fieldName, typeStr) : null
+
+  /** Would building `typeStr` place one of the user's values somewhere inside it?
+   *  Lets the generator go deeper than `maxDepth` only along those paths, so a value
+   *  such as a property to set is never lost in a nested structure. */
+  const holdsCache = new Map<string, boolean>()
+  function holdsValue(typeStr: string, stack: string[], extra: number): boolean {
+    if (!vals || isPrimitive(typeStr) || extra > VALUE_DEPTH) return false
+    if (!vals.objectType && !vals.file && vals.properties.length === 0) return false
+    const base = stem(typeStr)
+    if (stack.includes(base)) return false
+    const key = `${typeStr}|${extra}`
+    const cached = holdsCache.get(key)
+    if (cached !== undefined) return cached
+    holdsCache.set(key, false) // guards against cycles while computing
+    const fields = resolveFields(typeStr)
+    const hit =
+      (typeStr.includes('[]') && vals.properties.length > 0 && isNameValuePair(fields)) ||
+      fields.some(
+        (f) =>
+          deepGiven(f.name, f.type) !== null ||
+          (simpleName(f.type) === 'StringMap' && vals!.properties.length > 0) ||
+          holdsValue(f.type, [...stack, base], extra + 1)
+      )
+    holdsCache.set(key, hit)
+    return hit
+  }
+
   /** Build a value expression for `typeStr`, appending construction lines. */
   function buildValue(
     typeStr: string,
@@ -220,7 +255,7 @@ export function generateJava(
 
     const base = stem(typeStr)
     if (stack.includes(base)) return 'null /* recursive type — set manually */'
-    if (depth >= maxDepth) return 'null'
+    if (depth >= maxDepth && !holdsValue(typeStr, stack, depth - maxDepth + 1)) return 'null'
 
     const fields = resolveFields(typeStr)
     if (fields.length === 0) return 'null'
@@ -254,7 +289,7 @@ export function generateJava(
     lines.push(`${ind}${cls} ${objVar} = new ${cls}(); // ${isArray ? base + '[] element' : base}`)
     for (const f of fields) {
       const arr = f.type.includes('[]') ? '[]' : ''
-      const given = givenValue(f.name, f.type)
+      const given = depth >= maxDepth ? deepGiven(f.name, f.type) : givenValue(f.name, f.type)
       if (given) {
         lines.push(`${ind}${objVar}.${f.name} = ${given}; // from your request`)
         continue
@@ -317,6 +352,7 @@ export function generateJava(
     const argType = (_i: number, port: Port): string => javaType(port.type)
 
     vals = n.values
+    holdsCache.clear()
     B.push(`${ind}// --- Step ${stepNo.get(n.id)}: ${n.name}  [${n.lib} ${n.year} / ${n.serviceStub}] ---`)
     B.push(`${ind}// SOA: ${n.include}`)
 
