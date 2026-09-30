@@ -93,7 +93,7 @@ src/
     components/     AiStudio (main screen), AiChat, JavaCodeView (CodeMirror),
                     CatalogLoader, SchemaView
 eval/
-  cases.ts          80 test requests with expected operations and values
+  cases.ts          82 test requests with expected operations and values
   run.ts            Runs them against local models → eval/RESULTS.md
   recipes.check.ts  63 quick recipe-matching checks (no AI needed)
 ```
@@ -204,7 +204,7 @@ The app always uses the fixed model from `edition.ts` (Apache-2.0), with no mode
 
 ## 6. Quality
 
-**Test suite** (`eval/`): 80 requests at 4 levels (Basic, Medium, Hard, Advanced), written
+**Test suite** (`eval/`): 82 requests at 4 levels (Basic, Medium, Hard, Advanced), written
 in our own words from common real-world Teamcenter tasks. Score = correct operations in
 the right order + exact values, minus 1 per unneeded step.
 
@@ -215,7 +215,7 @@ Results (Basic + Medium, 35 tests, what the app is limited to):
 
 | Model | License | Score | Avg time | Size |
 |---|---|---|---|---|
-| **qwen2.5-coder:1.5b** (used) | Apache-2.0 | **89%** | 1.8 s | 1.0 GB |
+| **qwen2.5-coder:1.5b** (used) | Apache-2.0 | **90%** | 1.8 s | 1.0 GB |
 | gemma3:4b | Gemma terms | 92% | 13.6 s | 3.3 GB |
 | phi4-mini | MIT | 85% | 4.7 s | 2.5 GB |
 | llama3.2:3b | Llama Community | 79% | 4.0 s | 2.0 GB |

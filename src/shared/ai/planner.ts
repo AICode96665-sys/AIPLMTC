@@ -492,13 +492,30 @@ export async function planFlow(
   //    only (never the values).
   progress(STAGES.search.doing)
   const options: Option[] = []
+  const seenValues = new Set<string>() // property values given to earlier actions
   for (const a of actions) {
     const action = a.action!.trim()
     const values = cleanValues(a, query)
+    // A value belongs to the first action that uses it: in "Find the saved query Item Name,
+    // run it, then get the properties of the results", "Item Name" is the query's name, not
+    // the name of the objects on the last step. (Files are exempt: attaching a file needs
+    // the same file name on two steps.)
+    values.properties = values.properties.filter((p) => !seenValues.has(p.value.toLowerCase()))
+    values.properties.forEach((p) => seenValues.add(p.value.toLowerCase()))
     const found = recipeFor(query, a.quote ?? '', action)
     const recipe = found?.recipe
     const recipeOps = recipe ? recipe.steps.map((spec) => resolveOp(catalog, spec)).filter((o): o is Operation => !!o) : []
     const { ops, ranked } = rankedSearch(catalog, action)
+    // Two actions in a row with the same recipe are one job described twice ("find the
+    // saved query, run it": the recipe already finds AND runs it): use the recipe once.
+    const last = options[options.length - 1]
+    if (recipe && recipeOps.length && last?.recipe === recipe) {
+      for (const o of options.filter((x) => x.values === last.values)) o.action = `${o.action} + ${action}`
+      last.values.properties.push(...values.properties)
+      last.values.objectType ||= values.objectType
+      last.values.file ||= values.file
+      continue
+    }
     if (recipe && recipeOps.length) {
       recipeOps.forEach((op) => options.push({ action, values, ops: [op], recipe, matched: found!.matched, ranked }))
       continue

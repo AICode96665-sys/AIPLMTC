@@ -127,7 +127,7 @@ src/renderer/                 ── The window (React) ──
   src/styles.css              All styling
 
 eval/                         ── Tests ──
-  cases.ts                    80 test requests with the expected operations and values
+  cases.ts                    82 test requests with the expected operations and values
   run.ts                      Runs the AI test suite, writes eval/RESULTS.md
   recipes.check.ts            63 fast recipe-matching checks (no AI needed)
   results/*.json, RESULTS.md  Saved results per model
@@ -326,9 +326,12 @@ an array (`…[]`), or a map (`"KeyType;ValueType"`).
 - **`makeFieldResolver(data)`**: gives the immediate fields of one type, which the Java
   generator uses (section 9).
 - **Type rules for wiring**: `typesMatchExactly` compares simple names (the last part of
-  `A::B::C`, without `[]`). `typesCompatible` also accepts any generic object type
-  (`IModelObject`, `ModelObject`, `BusinessObject`, `WorkspaceObject`, `POM_object`, `tag_t`),
-  because Teamcenter passes objects around loosely.
+  `A::B::C`, without `[]`). `typesCompatible` also lets anything feed an input of a generic
+  object type (`IModelObject`, `ModelObject`, `BusinessObject`, `WorkspaceObject`, `POM_object`,
+  `tag_t`), because Teamcenter passes objects around loosely. The other way round is stricter:
+  a generic object **output** only feeds an **object** input (`isObjectType`: business objects
+  are `Teamcenter::ItemRevision`-style names; structures, maps and ServiceData live under
+  `…::Soa::…`). So query results are never wired into e.g. a search-criteria structure.
 
 ---
 
@@ -571,6 +574,14 @@ Core-2009-10-DataManagement/setTableProperties      17.17
 
 ### 8.5 [E] Value fix-ups
 
+- **One job described twice uses its recipe once.** If two actions in a row match the
+  **same recipe**, they are merged into one. "Find the saved query Item Name, run it": both
+  "find saved query" and "run saved query" match the saved-query recipe, which already finds
+  *and* runs the query, so the flow is find → run, not find → run → find → run.
+- **A value belongs to the first action that uses it.** A property value already given to an
+  earlier action is dropped from later ones, so "Item Name" stays the query's name and isn't
+  also used as the name of the objects on a later "get properties" step. File names are exempt:
+  attaching a file legitimately needs the same file name on two steps.
 - If a step's `object_type` equals a value the user gave (e.g. the name "Test part"), the
   model mixed up the fields, so the type is cleared.
 - A type belongs to the **first** step that names it (usually the create). Later repeats
@@ -597,7 +608,7 @@ them. When every action came from a recipe or had one option, **this call is ski
 **Safety check on the AI's pick** (`BEST_MATCH_MARGIN` = 15): each candidate has a search
 relevance of 0–100, where the best match is 100. The AI's pick is kept only if its relevance is
 at least 85. If the small model picks a clearly weaker match, or gives no usable answer, the
-best search match is used instead. Measured on all 80 test requests: the AI picked below the
+best search match is used instead. Measured on the 80 test requests: the AI picked below the
 best match only 3 times ("create item": `createObjects` 83 instead of `createItems` 100,
 both correct), and in the PLM XML example (section 10.3) it picked a wrong operation at 81
 while the right one was the best match. This check runs in the back end; the user
@@ -1069,7 +1080,8 @@ phrases, each with the recipe it must pick (e.g. "remove child line" → remove 
 
 **AI test suite** (`npm run eval -- --models qwen2.5-coder:1.5b --only Basic,Medium`,
 `eval/run.ts`):
-- 80 requests at 4 levels (Basic, Medium, Hard, Advanced) plus held-out rounds,
+- 82 requests at 4 levels (Basic, Medium, Hard, Advanced) plus held-out rounds and
+  regression tests for bugs found later (V1, V2: the saved-query recipe used twice),
   written in our own words from common real-world tasks (`eval/cases.ts`). Each lists
   the expected operations in order (with acceptable alternatives), the exact values that
   must come through, and optional extra operations that are also correct.
@@ -1081,12 +1093,20 @@ phrases, each with the recipe it must pick (e.g. "remove child line" → remove 
 **Held-out rule:** before each improvement round, a new batch of tests is written and
 **not tuned on**. That batch gives the honest real-world number.
 
-**Current numbers** (Basic + Medium, what the app is limited to): the app's model
-`qwen2.5-coder:1.5b` scores **89%** (47/53; 29 of 35 tests fully right) at about 2 s per
-request; the previous run scored 91%, and the one difference (Z6) comes from the model
-now answering that request with one action instead of two, the same with the old code. The larger 7B reference model
-scores 96% over all 80 tests but is roughly 5× slower and 5× bigger. Full table:
-[eval/RESULTS.md](../eval/RESULTS.md).
+**Current numbers** for the app's model `qwen2.5-coder:1.5b` (about 2–3 s per request):
+
+| Level | Tests | Score | Fully right |
+|---|---|---|---|
+| Basic | 15 | 100% (16/16) | 15 |
+| Medium | 22 | 86% (36/42) | 16 |
+| Hard | 21 | 93% (71/76) | 17 |
+| Advanced | 24 | 89% (72/81) | 18 |
+| **All** | **82** | **91% (195/215)** | **66** |
+
+Basic + Medium, what the app is limited to: **90% (52/58)**. (The test run itself doesn't apply
+the 3-steps-per-request limit, so Hard/Advanced show what the pipeline can do.) The larger 7B
+reference model scores 96% over the first 80 tests but is roughly 5× slower and 5× bigger. Full
+table: [eval/RESULTS.md](../eval/RESULTS.md).
 
 **Type check**: `npm run typecheck` (node side and web side separately).
 

@@ -39,14 +39,24 @@ const GENERIC = new Set([
   'tag_t'
 ])
 
-/** Two ports are connectable if their simple type names match, or either side
- *  is a generic object reference — Teamcenter passes objects around loosely, so
- *  a generic object port accepts any object type. */
+/** A business object type ("Teamcenter::ItemRevision"), as opposed to a request/response
+ *  structure, map or ServiceData (those live under "…::Soa::…") or a plain value. */
+export function isObjectType(type: string): boolean {
+  const base = type.replace('[]', '')
+  return !base.includes('::Soa::') && !base.startsWith('std::') && !PRIMITIVES[base]
+}
+
+/** Two ports are connectable if their simple type names match, or the target is a
+ *  generic object reference (Teamcenter passes objects around loosely, so a generic
+ *  object input accepts any object; the Java lists what to take from a structure).
+ *  A generic object output only fits an object input — never a structure such as
+ *  search criteria. */
 export function typesCompatible(sourceType: string, targetType: string): boolean {
   const s = simpleType(sourceType)
   const t = simpleType(targetType)
   if (s === t) return true
-  return GENERIC.has(s) || GENERIC.has(t)
+  if (GENERIC.has(t)) return true
+  return GENERIC.has(s) && isObjectType(targetType)
 }
 
 /** Exact (non-generic) type match — a stronger signal than typesCompatible. */

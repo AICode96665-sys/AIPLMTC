@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Fixed: a job described twice ("find the saved query, run it") used its recipe twice;
+  the flow now finds and runs the query once.
+- Fixed: query results could be wired into another step's search criteria; a generic object
+  output now only feeds inputs that take objects.
+- Fixed: a value could be reused on a later step where it doesn't belong (the query name
+  "Item Name" as the name of the objects read later).
+- Two regression tests added (V1, V2). qwen2.5-coder:1.5b: 91% over all 82 tests,
+  90% on Basic + Medium.
 - **Connections between steps are written as code when simple:** same type
   (`x = resp.field`) or the first of a list (`resp.field[0]`); marked `// from step N` and
   shown in blue. Other connections stay TODO but list the exact choices (e.g.

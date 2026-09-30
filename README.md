@@ -154,7 +154,7 @@ src/
   preload/     Safe bridge between the UI and the main process (window.tc)
   shared/      Catalog parser, AI pipeline (retrieve, recipes, planner), Java generator
   renderer/    React UI: AI chat, Java viewer (CodeMirror), catalog loader
-eval/          AI test suite (80 requests) and recipe checks
+eval/          AI test suite (82 requests), recipe and follow-up checks
 ```
 
 ### Editing the recipe book
