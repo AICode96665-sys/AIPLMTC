@@ -55,7 +55,7 @@ installs nothing on your system.
 **Known:** the file upload/download steps use operations that the catalog marks as internal
 (see ROADMAP); the installer is still not code-signed.
 
-**Download:** `TC SOA Studio Setup 0.2.0.exe`
+**Download:** `TC.SOA.Studio.Setup.0.2.0.exe` (106 MB)
 SHA-256: `8D1D52FFB2CA296A4526F1F192ABEA1F23878CC148C0D06EDF51FD31E67989FC`
 
 ## v0.1.2 (2026-09-29)

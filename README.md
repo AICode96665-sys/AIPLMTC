@@ -65,7 +65,8 @@ There are two ways to install. Both need **Ollama** and your **catalog file** (s
 ### Method 1 — Installer (easiest)
 
 1. Open the [**Releases**](https://github.com/AICode96665-sys/AIPLM/releases) page.
-2. Under the latest release, download **`TC SOA Studio Setup <version>.exe`**.
+2. Under the latest release, download **`TC.SOA.Studio.Setup.<version>.exe`** (e.g.
+   `TC.SOA.Studio.Setup.0.2.0.exe`; GitHub shows dots instead of spaces in the name).
 3. Double-click it and follow the steps (you can choose the install folder).
 4. Start **TC SOA Studio** from the desktop or Start menu shortcut.
 
