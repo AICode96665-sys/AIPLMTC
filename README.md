@@ -1,6 +1,27 @@
 # TC SOA Studio
 
-**Describe your Teamcenter program in plain English; get the Java.**
+**AI coding assistant for Teamcenter SOA.**
+Describe your Teamcenter program in plain English; get the Java.
+
+## How it works
+
+1. **Load your API catalog:** pick the `structure.js` from your own Teamcenter
+   documentation, once. The app remembers it.
+2. **Describe the job:** e.g. *"Create an item, check it out, set its description, then check
+   it in"*. Add to it with follow-ups such as *"then …"* or *"after check out, …"*.
+3. **Get the Java:** the steps appear in the chat and a complete Java program on the right,
+   with your values filled in. Copy it into your project.
+
+Everything runs on your PC; nothing is sent to the internet.
+
+**What the AI does, and what it doesn't.** A small AI model (running locally) does two
+narrow jobs: it *understands* your request (splits it into steps, picks out names and values)
+and, when several operations fit a step, *chooses* among real ones from your catalog. Everything
+that must be exact is ordinary code: the built-in recipe book, the catalog search, a check that
+overrules weak AI picks, connecting the steps, and writing the Java. So the AI can never invent
+an operation that isn't in your catalog. Details: [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
+
+---
 
 TC SOA Studio is a free Windows desktop app for engineers who write programs against the
 **Siemens Teamcenter SOA API**. Type what the program should do, for example:
