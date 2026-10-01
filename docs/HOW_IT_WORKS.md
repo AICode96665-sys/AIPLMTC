@@ -350,6 +350,7 @@ maps to one `ipcMain.handle` in `src/main/index.ts`.
 | `reset()` | `catalog:reset` | Forget catalog, delete cache files | – |
 | `getCatalog()` | `catalog:get` | The whole catalog | `Catalog` |
 | `getRawData()` | `catalog:rawData` | The raw data tree (for details view) | `RawData` |
+| `operationNotes(url)` | `catalog:operationNotes` | What the recipe book knows about an operation (details panel) | `{ needsFirst, followWith, partOf }` |
 | `aiStatus()` | `ai:status` | Start Ollama if needed; is the model installed? | `{ running, selected, model }` |
 | `aiPlan(query, continueFrom?)` | `ai:plan` | **Run the whole pipeline + Java** (section 8); `continueFrom` = the `planId` of the answer on screen, for follow-ups (8.11) | `AiBuildResult` (with `planId`) |
 | `aiCancel()` | `ai:cancel` | Abort the running request | – |
@@ -964,10 +965,15 @@ trademark / "not affiliated with Siemens" note.
   the result. A successful result becomes the **active** turn, shown on the right.
 - **Copy all** and **Copy selection (n lines)** go through `window.tc.copyText`, and the
   button shows "Copied ✓".
-- **Operation details drawer**: clicking a step's operation name shows its description,
-  `include` ("SOA Dependency"), and the fully expanded **Request** and **Response**
-  structures (`expandForDisplay` + `SchemaView`: a click-to-open tree, maps shown as
-  key/value, enums listed, cycles marked ↻).
+- **Operation details drawer**: clicking a step's operation name opens it. On top, a short
+  **summary**: the first sentence of the description, what it **takes** and **returns** (names
+  and types), and what the **recipe book** knows about it (`catalog:operationNotes`):
+  *Needs first* (e.g. createBOMWindows before adding a BOM line), *Follow with* (save/close
+  BOM window), *Usually part of* (e.g. getDatasetWriteTickets → commitDatasetFiles). Everything
+  comes from the catalog and the recipe book; nothing is generated. Below: the full
+  description, `include` ("SOA Dependency"), and the fully expanded **Request** and
+  **Response** structures (`expandForDisplay` + `SchemaView`: a click-to-open tree, maps
+  shown as key/value, enums listed, cycles marked ↻).
 
 **AiChat** (`AiChat.tsx`) has four states:
 

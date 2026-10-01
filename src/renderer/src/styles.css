@@ -271,3 +271,12 @@ html, body, #root {
 
 /* follow-up requests: steps from earlier requests of the same flow */
 .msg-steps li.earlier { opacity: 0.55; }
+
+/* operation details: short summary above the full description and structures */
+.op-summary { margin-bottom: 14px; padding: 10px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); }
+.op-what { margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
+.op-io { display: grid; grid-template-columns: 70px 1fr; gap: 3px 10px; margin: 0; font-size: 12.5px; }
+.op-io dt { color: var(--muted); }
+.op-io dd { margin: 0; font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.op-notes { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--accent); }
+.op-detail h3:first-of-type { margin-top: 0; }

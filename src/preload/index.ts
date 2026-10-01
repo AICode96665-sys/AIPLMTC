@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { Catalog, RawData, CatalogSummary, LoadResult } from '../shared'
-import type { AiBuildResult, AiStatus } from '../shared/ai/status'
+import type { AiBuildResult, AiStatus, OperationNotes } from '../shared/ai/status'
 
 const api = {
   status: (): Promise<{ loaded: boolean; summary: CatalogSummary | null }> =>
@@ -12,6 +12,8 @@ const api = {
   pickFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickFile'),
   getCatalog: (): Promise<Catalog> => ipcRenderer.invoke('catalog:get'),
   getRawData: (): Promise<RawData> => ipcRenderer.invoke('catalog:rawData'),
+  /** What the recipe book knows about an operation (details panel). */
+  operationNotes: (url: string): Promise<OperationNotes> => ipcRenderer.invoke('catalog:operationNotes', url),
 
   // AI assistant
   aiStatus: (): Promise<AiStatus> => ipcRenderer.invoke('ai:status'),

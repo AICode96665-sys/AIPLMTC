@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Operation details** start with a short summary: what the operation does (first sentence of
+  the description), what it takes and returns, and what the recipe book knows ("Needs first:
+  createBOMWindows", "Follow with: saveBOMWindows, closeBOMWindows", "Usually part of: …").
+- New `docs/ROADMAP.md`: ideas kept for later, and what was decided against.
 - Chat answers show only the steps (no "Here is the flow" heading or "Show this flow" line).
 - Follow-ups understand more: "after X, …" / "before X, …" (placed right after/before step X),
   "at the start/end", "this code / this flow", and a leading "please". Creating something

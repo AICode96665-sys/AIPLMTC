@@ -6,7 +6,8 @@ import { planFlow, type AiPlan } from '../shared/ai/planner'
 import { planToJava } from '../shared/codegen/fromPlan'
 import { LIMITS } from '../shared/edition'
 import { STAGES } from '../shared/ai/progress'
-import type { AiBuildResult } from '../shared/ai/status'
+import type { AiBuildResult, OperationNotes } from '../shared/ai/status'
+import { getRecipes, resolveOp } from '../shared/ai/recipes'
 import { ensureOllamaRunning, listModels, ollamaChat, pullModel, type AiStatus } from './ollama'
 
 // Note: this app does NOT bundle or redistribute any Teamcenter catalog data.
@@ -159,6 +160,25 @@ ipcMain.handle('catalog:reset', () => {
 })
 
 ipcMain.handle('catalog:get', (): Catalog | null => state.catalog)
+
+// Operation details panel: what the recipe book knows about one operation. Only facts from
+// the recipe book, resolved in the user's catalog; nothing is generated.
+ipcMain.handle('catalog:operationNotes', (_e, url: unknown): OperationNotes => {
+  const notes: OperationNotes = { needsFirst: [], followWith: [], partOf: [] }
+  const catalog = state.catalog
+  if (!catalog || typeof url !== 'string') return notes
+  const names = (specs: string[] = []): string[] =>
+    specs.map((s) => resolveOp(catalog, s)?.name).filter((n): n is string => !!n)
+  const add = (list: string[], items: string[]): void => items.forEach((x) => list.includes(x) || list.push(x))
+  for (const recipe of getRecipes()) {
+    const ops = recipe.steps.map((s) => resolveOp(catalog, s)).filter((o) => !!o)
+    if (!ops.some((o) => o!.url === url)) continue
+    add(notes.needsFirst, names(recipe.before))
+    add(notes.followWith, names(recipe.after))
+    if (ops.length > 1) add(notes.partOf, [ops.map((o) => o!.name).join(' → ')])
+  }
+  return notes
+})
 ipcMain.handle('catalog:rawData', (): RawData | null => state.rawData)
 
 ipcMain.handle('dialog:pickFile', async (): Promise<string | null> => {

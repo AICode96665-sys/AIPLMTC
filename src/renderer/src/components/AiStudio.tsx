@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { expandForDisplay, type Catalog, type Operation, type RawData, type TypeDef } from '@shared/index'
-import type { AiStatus } from '@shared/ai/status'
+import { expandForDisplay, operationPorts, type Catalog, type Operation, type RawData, type TypeDef } from '@shared/index'
+import type { AiStatus, OperationNotes } from '@shared/ai/status'
 import SchemaView from './SchemaView'
 import JavaCodeView from './JavaCodeView'
 import AiChat, { type Turn } from './AiChat'
 
-/** Details for one operation — shown when a step name in the chat is clicked. */
+/** "ItemProperties[]" from "Teamcenter::Soa::Core::_2006_03::DataManagement::ItemProperties[]". */
+const shortType = (t: string): string => t.split('::').pop()!
+
+/** The first sentence of a description (the full text stays below). */
+function firstSentence(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  const m = flat.match(/^(.{20,300}?[.!?])(\s|$)/)
+  return m ? m[1] : flat.slice(0, 300)
+}
+
+/** Details for one operation — shown when a step name in the chat is clicked. A short
+ *  summary (what it does, takes, returns, and what the recipe book knows) comes first,
+ *  all from the catalog and the recipe book, nothing generated. */
 function OperationDetails({ op, rawData, onClose }: { op: Operation; rawData: RawData; onClose: () => void }): JSX.Element {
   const expanded = useMemo(
     () => ({
@@ -14,6 +26,19 @@ function OperationDetails({ op, rawData, onClose }: { op: Operation; rawData: Ra
     }),
     [op, rawData]
   )
+  const ports = useMemo(() => operationPorts(op), [op])
+  const [notes, setNotes] = useState<OperationNotes | null>(null)
+  useEffect(() => {
+    let current = true
+    setNotes(null)
+    window.tc.operationNotes(op.url).then((n) => current && setNotes(n), () => {})
+    return () => {
+      current = false
+    }
+  }, [op])
+  const list = (ps: { name: string; type: string }[]): string =>
+    ps.map((p) => `${p.name} (${shortType(p.type)})`).join(', ')
+  const results = ports.outputs.filter((p) => p.name !== 'serviceData')
   return (
     <div className="op-drawer">
       <div className="suggest-head">
@@ -28,6 +53,28 @@ function OperationDetails({ op, rawData, onClose }: { op: Operation; rawData: Ra
         </button>
       </div>
       <div className="op-drawer-body op-detail">
+        <div className="op-summary">
+          {op.description && <p className="op-what">{firstSentence(op.description)}</p>}
+          <dl className="op-io">
+            <dt>Takes</dt>
+            <dd>{ports.inputs.length ? list(ports.inputs) : 'nothing'}</dd>
+            <dt>Returns</dt>
+            <dd>
+              {results.length ? list(results) : 'ServiceData only'}
+              {results.length > 0 && ports.outputs.some((p) => p.name === 'serviceData') ? ', serviceData' : ''}
+            </dd>
+          </dl>
+          {notes && (notes.needsFirst.length > 0 || notes.followWith.length > 0 || notes.partOf.length > 0) && (
+            <ul className="op-notes" title="From the built-in recipe book">
+              {notes.needsFirst.length > 0 && <li>Needs first: {notes.needsFirst.join(', ')}</li>}
+              {notes.followWith.length > 0 && <li>Follow with: {notes.followWith.join(', ')}</li>}
+              {notes.partOf.map((p) => (
+                <li key={p}>Usually part of: {p}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <h3>Description</h3>
         <p className="desc">{op.description}</p>
         <dl className="meta">
           <dt>SOA Dependency</dt>
