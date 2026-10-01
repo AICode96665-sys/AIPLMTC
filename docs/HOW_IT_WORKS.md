@@ -242,10 +242,13 @@ and runs the production build without installing.
    - **`tryLoadCache()`**: if a catalog was loaded before, it is read from
      `%APPDATA%\tc-soa-studio\catalog.js` (+ `catalog-meta.json`) and parsed (section 5).
      A corrupt cache is ignored and the user sees the loader again.
-   - **`createWindow()`**: 1500×950, hidden until ready, with `sandbox: true`,
+   - **`createWindow()`**: 1500×950, shown at once in the app's background colour (the page
+     can take seconds to start on Windows, see section 7 "Speed"), with `sandbox: true`,
      `contextIsolation: true`, `nodeIntegration: false`, `webviewTag: false`,
      `devTools` only in dev. New windows are denied (https links open in the system
      browser instead) and navigation away from the app is blocked.
+   - **`aiStatus()` in the background**: starts Ollama if needed and gets the model ready
+     (warm-up, section 7) while Windows is still starting the window.
 3. The window loads `out/renderer/index.html` and React starts `App.tsx`.
 
 **`App.tsx` screen phases:**
@@ -392,7 +395,8 @@ Processes are started detached and hidden. Only these known executables are ever
 started, never anything the user typed.
 
 **`aiStatus()`** (`index.ts`): `ensureOllamaRunning` → `listModels` →
-`{ running, selected: model installed ? 'qwen2.5-coder:1.5b' : null, model }`.
+`{ running, selected: model installed ? 'qwen2.5-coder:1.5b' : null, model }`. If the model is
+installed and wasn't warmed up in the last 20 minutes, it also starts **`warmUp`** in the background.
 
 **Model download, `pullModel()`**: `POST /api/pull { model, stream: true }`. Ollama
 answers with one JSON line per progress update (`pulling manifest`, `pulling <layer>` with
@@ -404,8 +408,8 @@ ends before `success` is an error. The main process only ever asks for `LIMITS.m
 
 ```
 POST /api/chat
-{ model, messages, format: <JSON schema>, stream: false,
-  options: { temperature: 0, num_ctx: 8192 } }
+{ model, messages, format: <JSON schema>, stream: false, keep_alive: "30m",
+  options: { temperature: 0, num_ctx: 8192 } }   ← MODEL_OPTIONS
 ```
 
 - `format` = **structured output**: Ollama forces the reply to match the JSON schema. For
@@ -415,6 +419,37 @@ POST /api/chat
 - Timeout 5 minutes (the first call on a CPU-only PC also loads the model), and the call
   is cancellable (`ai:cancel`).
 - 404 → "model not installed"; no connection → "is Ollama running?".
+
+**Speed** (measured on the development PC, CPU only, 1,470-operation catalog):
+
+| Part | Time |
+|---|---|
+| Read + parse + index the catalog (7.2 MB) | ~170 ms, once at startup |
+| Search, wiring, Java generation | under 10 ms per request |
+| AI, model loaded and warmed up | ~3 s per request |
+| AI, model not loaded | ~10 s (≈7 s of it loading the model and reading the instructions) |
+
+So almost all the time is the AI, and the "cold" first request is what users notice. Three
+measures:
+
+- **Warm-up** (`warmUp`): right after start-up, the main process loads the model *and* has it
+  read the long "understand" instructions once (`UNDERSTAND_PROMPT`, one generated token).
+  Ollama reuses that work for the next request with the same instructions. It must use the
+  **same `MODEL_OPTIONS`** as real requests; with a different `num_ctx` Ollama reloads the
+  model and the warm-up is wasted (measured: a warm-up with other options left a 3.3 s
+  reload; with the same options the request took 0.57 s). Result, from a fresh start: first
+  request **10 s → ~4 s** when asked as soon as the chat appears, ~3.5 s a few seconds later.
+- **Keep the model loaded 30 minutes** (`keep_alive: "30m"`, Ollama's default is 5) so a short
+  break doesn't cost a reload; ~1–1.5 GB of RAM while the app is open.
+- **Unload it when the app closes** (`unloadModel`, `keep_alive: 0`), so the memory isn't held
+  after the app is gone.
+
+**Start-up:** the window process takes ~5 s to start on the development PC. Measured: the main
+process is ready after 0.3 s, but Windows starts each of Electron's helper processes ~2.5 s
+apart, even for an empty page, independent of the preload, sandbox, GPU or folder. That is the
+typical cost of security checks on **unsigned** programs (Smart App Control / Defender), so
+the fix is code signing (see [ROADMAP.md](ROADMAP.md)). Meanwhile the window is shown at once
+in the app's colour, and the model warm-up uses those seconds.
 
 ---
 
@@ -1150,7 +1185,9 @@ table: [eval/RESULTS.md](../eval/RESULTS.md).
 | Candidates per action | 4 | `planner.ts` `OPTIONS_PER_STEP` |
 | AI pick kept if relevance ≥ | 85 (best match = 100) | `planner.ts` `BEST_MATCH_MARGIN` |
 | Java structure depth | 1, plus up to 4 more levels only where a user value goes | `edition.ts` `codegenDepth`, `java.ts` `VALUE_DEPTH` |
-| AI temperature / context | 0 / 8192 tokens | `ollama.ts` |
+| AI temperature / context | 0 / 8192 tokens (`MODEL_OPTIONS`) | `ollama.ts` |
+| Model kept loaded | 30 minutes; unloaded when the app closes | `ollama.ts` `KEEP_LOADED` |
+| Warm-up | at start-up, then at most every 20 minutes | `index.ts` `aiStatus` |
 | Chat timeout | 5 minutes | `ollama.ts` |
 | Status check timeout | 2.5 s | `ollama.ts` |
 | Ollama start wait | 40 × 0.5 s = 20 s (app); 30 tries, about 30–90 s (`start.bat`) | `ollama.ts`, `start.bat` |

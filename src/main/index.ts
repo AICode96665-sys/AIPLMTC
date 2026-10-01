@@ -2,13 +2,13 @@ import { app, BrowserWindow, Menu, clipboard, ipcMain, dialog, session, shell } 
 import { join, basename } from 'node:path'
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { parseStructureJs, buildCatalog, type Catalog, type CatalogSummary, type LoadResult, type RawData } from '../shared'
-import { planFlow, type AiPlan } from '../shared/ai/planner'
+import { planFlow, UNDERSTAND_PROMPT, type AiPlan } from '../shared/ai/planner'
 import { planToJava } from '../shared/codegen/fromPlan'
 import { LIMITS } from '../shared/edition'
 import { STAGES } from '../shared/ai/progress'
 import type { AiBuildResult, OperationNotes } from '../shared/ai/status'
 import { getRecipes, resolveOp } from '../shared/ai/recipes'
-import { ensureOllamaRunning, listModels, ollamaChat, pullModel, type AiStatus } from './ollama'
+import { ensureOllamaRunning, listModels, ollamaChat, pullModel, unloadModel, warmUp, type AiStatus } from './ollama'
 
 // Note: this app does NOT bundle or redistribute any Teamcenter catalog data.
 // Customers load their own structure.js (which they are licensed to possess).
@@ -92,7 +92,10 @@ function createWindow(): void {
   const win = new BrowserWindow({
     width: 1500,
     height: 950,
-    show: false,
+    // Shown at once in the app's colour: on Windows the page can take seconds to start
+    // (process start-up checks on unsigned apps), and an empty app colour beats nothing.
+    show: true,
+    backgroundColor: '#ffffff',
     title: 'TC SOA Studio',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -104,7 +107,6 @@ function createWindow(): void {
       devTools: isDev // no DevTools in the released app
     }
   })
-  win.on('ready-to-show', () => win.show())
   // links (e.g. https://ollama.com) open in the user's browser, never inside the app
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//i.test(url)) shell.openExternal(url)
@@ -195,10 +197,19 @@ ipcMain.handle('dialog:pickFile', async (): Promise<string | null> => {
 
 // --- AI assistant (local model via Ollama) ---
 
+/** When the model was last loaded in the background (see warmUp). */
+let warmedAt = 0
+
 async function aiStatus(): Promise<AiStatus> {
   await ensureOllamaRunning() // installed but not running -> start it automatically
   const { running, models } = await listModels()
   const installed = models.some((x) => x.name === LIMITS.model)
+  // Load the model in the background as soon as we know it's there, so the first request
+  // doesn't wait for it (~7 s). Requests themselves keep it loaded afterwards.
+  if (installed && Date.now() - warmedAt > 20 * 60 * 1000) {
+    warmedAt = Date.now()
+    void warmUp(LIMITS.model, UNDERSTAND_PROMPT)
+  }
   return { running, selected: installed ? LIMITS.model : null, model: LIMITS.model }
 }
 
@@ -290,11 +301,15 @@ app.whenReady().then(() => {
     /* corrupt cache — renderer will show the loader */
   }
   createWindow()
+  // Start Ollama and get the model ready now, while Windows is still starting the window
+  // (several seconds): then the user's first request is as fast as later ones.
+  void aiStatus().catch(() => {})
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  // free the model's memory (it is kept loaded while the app is open), then quit
+  if (process.platform !== 'darwin') void unloadModel(LIMITS.model).finally(() => app.quit())
 })

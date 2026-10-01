@@ -137,7 +137,7 @@ const UNDERSTAND_SCHEMA = {
   required: ['steps']
 }
 
-const UNDERSTAND_PROMPT = `You turn a Teamcenter request into the list of actions it needs, in the order they happen.
+export const UNDERSTAND_PROMPT = `You turn a Teamcenter request into the list of actions it needs, in the order they happen.
 For each action:
 - action: 2 to 5 words saying WHAT to do, for example: create item, create folder, find item by ID, attach dataset, upload file, download file, set properties, get properties, check out, check in, cancel checkout, revise item, save as new item, delete object, find objects, create relation, delete relation, list attached datasets, assign to project, open BOM window, add child line, remove child line, save BOM window, close BOM window, expand structure, expand all levels, find where used, run saved query, start workflow, send for approval, list workflow templates, complete workflow task, set release status, create change request.
 - KEEP the Teamcenter words the user used in action (BOM, window, child line, structure, where used, saved query, workflow, folder, dataset, project).

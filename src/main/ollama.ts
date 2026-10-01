@@ -14,6 +14,15 @@ export type { AiStatus } from '../shared/ai/status'
 const OLLAMA_URL = process.env['TC_OLLAMA_URL'] || 'http://127.0.0.1:11434'
 const PORTABLE_OLLAMA = process.env['TC_OLLAMA_EXE'] // runtime\ollama\ollama.exe, if any
 
+/** How long Ollama keeps the model in memory after the last use. Ollama's default is
+ *  5 minutes; loading the model again takes ~7 s (a 10 s request instead of 3 s), so the
+ *  app keeps it for a working session and unloads it when it closes (unloadModel). */
+const KEEP_LOADED = '30m'
+
+/** Model settings for every request. The warm-up must use the SAME ones: if they differ
+ *  (e.g. num_ctx), Ollama loads the model again and the warm-up is wasted. */
+const MODEL_OPTIONS = { temperature: 0, num_ctx: 8192 }
+
 async function fetchWithTimeout(url: string, init: RequestInit, ms: number, signal?: AbortSignal): Promise<Response> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(new Error('timeout')), ms)
@@ -57,7 +66,8 @@ export function ollamaChat(model: string, signal?: AbortSignal): ChatFn {
             messages,
             format: schema,
             stream: false,
-            options: { temperature: 0, num_ctx: 8192 }
+            keep_alive: KEEP_LOADED,
+            options: MODEL_OPTIONS
           })
         },
         5 * 60 * 1000, // CPU-only machines can be slow on the first (model-loading) call
@@ -77,6 +87,48 @@ export function ollamaChat(model: string, signal?: AbortSignal): ChatFn {
   }
 }
 
+/** Get the model ready in the background, so the user's first request is as fast as later
+ *  ones (measured: 6.8 s → 3.0 s after a model load). It loads the model AND has it read the
+ *  long instruction text (`instructions`) once; Ollama reuses that work for the next request
+ *  with the same instructions. Only one token is generated. Errors are ignored: the request
+ *  itself would load the model anyway. */
+export async function warmUp(model: string, instructions: string): Promise<void> {
+  try {
+    await fetchWithTimeout(
+      `${OLLAMA_URL}/api/chat`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          stream: false,
+          keep_alive: KEEP_LOADED,
+          options: { ...MODEL_OPTIONS, num_predict: 1 },
+          messages: [
+            { role: 'system', content: instructions },
+            { role: 'user', content: 'Request: create an item' }
+          ]
+        })
+      },
+      2 * 60 * 1000
+    )
+  } catch {
+    /* not important */
+  }
+}
+
+/** Free the model's memory when the app closes (Ollama would otherwise keep it for KEEP_LOADED). */
+export async function unloadModel(model: string): Promise<void> {
+  try {
+    await fetchWithTimeout(
+      `${OLLAMA_URL}/api/generate`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model, keep_alive: 0 }) },
+      1500
+    )
+  } catch {
+    /* Ollama not running: nothing to free */
+  }
+}
 
 export interface PullProgress {
   /** Ollama's status text, e.g. "pulling manifest", "verifying sha256 digest", "success". */

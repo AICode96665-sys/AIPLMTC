@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Faster first answer:** the AI model is loaded and primed in the background as soon as the
+  app starts, and kept loaded for 30 minutes (Ollama's default is 5). The first request after
+  opening the app went from ~10 s to ~4 s; a request after a short break no longer pays ~7 s
+  to reload the model. The model's memory is freed when the app closes.
+- The window appears immediately (in the app's colour) instead of after a few seconds of nothing.
 - **Operation details** start with a short summary: what the operation does (first sentence of
   the description), what it takes and returns, and what the recipe book knows ("Needs first:
   createBOMWindows", "Follow with: saveBOMWindows, closeBOMWindows", "Usually part of: …").

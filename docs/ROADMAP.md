@@ -23,7 +23,7 @@ section. See [HOW_IT_WORKS.md](HOW_IT_WORKS.md) for how the app works today.
 | Save / open flows | Flows are kept only while the app is open. |
 | Complete Java imports | Service and structure classes are written by simple name; imports must be added from the SDK. |
 | More wire mappings | Only simple ones are written (same type, first of a list). Result structures, ServiceData and maps stay TODO by design. |
-| Code signing for the installer | Needed to avoid SmartScreen / Smart App Control blocks. Needs a certificate (cost). |
+| Code signing for the installer | Needed to avoid SmartScreen / Smart App Control blocks, and very likely removes most of the ~5 s start-up (Windows starts each unsigned helper process ~2.5 s apart; measured 2026-10-01). Needs a certificate (cost). |
 
 ## Decided against (for now)
 
@@ -38,6 +38,7 @@ section. See [HOW_IT_WORKS.md](HOW_IT_WORKS.md) for how the app works today.
 
 ## Done (from these reviews)
 
+- Speed: model warm-up at start-up, kept loaded 30 min, unloaded on close (first request 10 s → ~4 s); window shown at once.
 - Explain this operation: short summary and recipe-based notes in the operation details panel.
 - Values reach nested Java structures; simple step-to-step connections written as code.
 - Back-end check that overrules weak AI operation picks; "thinking" progress in the chat.
