@@ -10,3 +10,7 @@ recipes/recipes.json
 
 # portable Node.js, Ollama and AI model downloaded by start.bat
 runtime/
+
+# Documents kept on the developer PC only (not published); README.md is the only one in the repo
+*.md
+!README.md

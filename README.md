@@ -19,7 +19,7 @@ narrow jobs: it *understands* your request (splits it into steps, picks out name
 and, when several operations fit a step, *chooses* among real ones from your catalog. Everything
 that must be exact is ordinary code: the built-in recipe book, the catalog search, a check that
 overrules weak AI picks, connecting the steps, and writing the Java. So the AI can never invent
-an operation that isn't in your catalog. Details: [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
+an operation that isn't in your catalog.
 
 ---
 
@@ -33,7 +33,7 @@ them, and writes a complete Java client program (login → calls in order → lo
 your values filled in.
 
 - **Private by design:** the AI runs locally on your PC via [Ollama](https://ollama.com).
-  Nothing is sent to the internet ([PRIVACY.md](PRIVACY.md)).
+  Nothing is sent to the internet.
 - **Grounded:** the AI can only use operations that exist in your catalog; a built-in
   "recipe book" covers common Teamcenter tasks (BOM edits, check-out/in, workflows,
   saved queries, where-used, file upload/download, …).
@@ -54,8 +54,7 @@ Teamcenter is a trademark of Siemens.*
    (about 1 GB, once, with a progress bar and Cancel).
 3. **Your Teamcenter API catalog (`structure.js`)**: the data file behind the Teamcenter
    Services API reference that comes with your Teamcenter documentation. You must be licensed
-   to use it; the app does **not** include any Siemens data. See [FINDINGS.md](FINDINGS.md)
-   for what this file is.
+   to use it; the app does **not** include any Siemens data.
 
 ## Install
 
@@ -150,54 +149,7 @@ npm run dev      # or: development mode with hot reload and DevTools
 
 The generated code is a starting point for an engineer to review, not a finished program.
 
-## For developers
-
-```bash
-npm run dev            # run in development mode (DevTools available)
-npm run build          # production build → out/
-npm run dist           # Windows installer → dist/
-npm run typecheck      # type-check everything
-npm run check:recipes  # 63 fast recipe-matching checks (no AI needed)
-npm run check:followup # 25 fast follow-up detection checks (no AI needed)
-npm run eval -- --models qwen2.5-coder:1.5b --only Basic,Medium   # AI test suite (needs Ollama + a catalog)
-```
-
-- How it works inside, step by step (start-up, catalog, AI pipeline, Java generator,
-  screens, security, build, tests, real traces): [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)
-- Short summary: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
-- Test results: [eval/RESULTS.md](eval/RESULTS.md)
-- Release steps and security checks: [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
-
-### Project layout
-
-```
-src/
-  main/        Electron main process: catalog loading, AI pipeline, Java generation, hardening
-  preload/     Safe bridge between the UI and the main process (window.tc)
-  shared/      Catalog parser, AI pipeline (retrieve, recipes, planner), Java generator
-  renderer/    React UI: AI chat, Java viewer (CodeMirror), catalog loader
-eval/          AI test suite (82 requests), recipe and follow-up checks
-```
-
-### Editing the recipe book
-
-The recipe book ships **encrypted** (`src/shared/ai/recipeData.ts`); the app decrypts it in
-memory. To edit it:
-
-```bash
-npm run recipes:decrypt    # creates recipes/recipes.json (readable, git-ignored)
-# ...edit recipes/recipes.json...
-npm run recipes:encrypt    # writes the encrypted src/shared/ai/recipeData.ts
-npm run check:recipes      # make sure matching still works
-```
-
-Commit only `recipeData.ts`; `recipes/recipes.json` stays on your PC.
-
-Contributions are welcome: please run `npm run typecheck` and `npm run check:recipes`
-before opening a pull request, and write recipes and tests in your own words (never copy
-Siemens documentation or sample code).
-
 ## License
 
-[MIT](LICENSE) © 2026 Quick Sense Innovations. Third-party components:
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[MIT](LICENSE) © 2026 Quick Sense Innovations. The installer includes the license notices of the
+open-source components it uses.
