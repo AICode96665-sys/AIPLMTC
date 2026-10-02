@@ -1,7 +1,22 @@
 # TC SOA Studio
 
-**AI coding assistant for Teamcenter SOA.**
-Describe your Teamcenter program in plain English; get the Java.
+## Describe Teamcenter. Get the Java.
+
+TC SOA Studio turns plain-English Teamcenter tasks into Java SOA client programs, using only
+operations from **your own** Teamcenter API catalog. No need to remember which service,
+which operation, or which request structure.
+
+💬 **Describe:** tell it what your program should do, e.g. *"Create an item named Bracket and
+set its description to Demo bracket"*. Keep going with *"then check it out"*.
+
+🔎 **Ground:** every operation comes from your Teamcenter API catalog. The AI can't invent
+an API that isn't there.
+
+⚡ **Generate:** get a complete Java client (login → calls in order → logout) with your values
+filled in, ready to review and use.
+
+🔒 **And it all runs on your PC.** The AI is local; your catalog and your requests never leave
+your machine.
 
 ## How it works
 
@@ -11,8 +26,6 @@ Describe your Teamcenter program in plain English; get the Java.
    it in"*. Add to it with follow-ups such as *"then …"* or *"after check out, …"*.
 3. **Get the Java:** the steps appear in the chat and a complete Java program on the right,
    with your values filled in. Copy it into your project.
-
-Everything runs on your PC; nothing is sent to the internet.
 
 **What the AI does, and what it doesn't.** A small AI model (running locally) does two
 narrow jobs: it *understands* your request (splits it into steps, picks out names and values)
