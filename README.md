@@ -151,5 +151,5 @@ The generated code is a starting point for an engineer to review, not a finished
 
 ## License
 
-[MIT](LICENSE) © 2026 Quick Sense Innovations. The installer includes the license notices of the
+[MIT](LICENSE) © 2026 AICode96665-sys. The installer includes the license notices of the
 open-source components it uses.

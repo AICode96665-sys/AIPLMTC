@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "description": "Describe your Teamcenter SOA program in plain English and get the Java — local AI, private by design.",
   "main": "./out/main/index.js",
-  "author": "Quick Sense Innovations",
+  "author": "AICode96665-sys",
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
@@ -41,9 +41,9 @@
     "@codemirror/view": "^6.43.13"
   },
   "build": {
-    "appId": "com.quicksense.tcsoastudio",
+    "appId": "com.aicode96665.tcsoastudio",
     "productName": "TC SOA Studio",
-    "copyright": "Copyright © 2026 Quick Sense Innovations",
+    "copyright": "Copyright © 2026 AICode96665-sys",
     "directories": {
       "output": "dist"
     },
