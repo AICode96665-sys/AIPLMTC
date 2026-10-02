@@ -64,7 +64,7 @@ There are two ways to install. Both need **Ollama** and your **catalog file** (s
 
 ### Method 1 — Installer (easiest)
 
-1. Open the [**Releases**](https://github.com/AICode96665-sys/AIPLM/releases) page.
+1. Open the [**Releases**](https://github.com/AICode96665-sys/AIPLMTC/releases) page.
 2. Under the latest release, download **`TC.SOA.Studio.Setup.<version>.exe`** (e.g.
    `TC.SOA.Studio.Setup.0.2.0.exe`; GitHub shows dots instead of spaces in the name).
 3. Double-click it and follow the steps (you can choose the install folder).
@@ -83,11 +83,11 @@ the code (`bundled\`); `start.bat` downloads Ollama and the AI model, keeps ever
 1. **Get the code**, either way:
    - with Git:
      ```bash
-     git clone https://github.com/AICode96665-sys/AIPLM.git
+     git clone https://github.com/AICode96665-sys/AIPLMTC.git
      ```
    - or without Git: on this page click **Code → Download ZIP**, then right-click the ZIP →
      **Extract All…**
-2. **Open the folder** `AIPLM` (for the ZIP: `AIPLM-main`) in File Explorer.
+2. **Open the folder** `AIPLMTC` (for the ZIP: `AIPLMTC-main`) in File Explorer.
 3. **Double-click `start.bat`.**
 
 | Step | What it does |
@@ -106,7 +106,7 @@ Each piece is downloaded only the first time; after that the app opens in second
 - **Checked files:** the included Node.js (the official nodejs.org archive) and the Ollama
   download (official GitHub release) are pinned versions verified against their SHA-256
   checksums; a damaged or altered file is not used. Interrupted downloads resume.
-- **To remove everything:** delete the `AIPLM` folder (or just its `runtime` folder).
+- **To remove everything:** delete the `AIPLMTC` folder (or just its `runtime` folder).
 
 **You need:** Windows 10 (version 1803 or newer) or Windows 11, an internet connection for the
 first run, and about **6 GB** of free disk space (checked automatically; the first run
@@ -121,8 +121,8 @@ app, `start.bat` stops its Ollama again.
 <summary>Developers: the same from a terminal</summary>
 
 ```bash
-git clone https://github.com/AICode96665-sys/AIPLM.git
-cd AIPLM
+git clone https://github.com/AICode96665-sys/AIPLMTC.git
+cd AIPLMTC
 npm install
 npm start        # build and run (production mode)
 npm run dev      # or: development mode with hot reload and DevTools
