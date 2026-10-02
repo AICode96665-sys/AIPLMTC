@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Catalog, CatalogSummary, RawData } from '@shared/index'
 import AiStudio from './components/AiStudio'
 import CatalogLoader from './components/CatalogLoader'
+import FeedbackPanel from './components/FeedbackPanel'
 
 
 type Phase = 'checking' | 'load' | 'loading' | 'ready'
@@ -12,6 +13,8 @@ export default function App(): JSX.Element {
   const [rawData, setRawData] = useState<RawData | null>(null)
   const [summary, setSummary] = useState<CatalogSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const closeFeedback = useCallback(() => setFeedbackOpen(false), [])
 
   const enterStudio = useCallback(async () => {
     setPhase('loading')
@@ -100,7 +103,11 @@ export default function App(): JSX.Element {
         <button className="clear change-catalog" onClick={changeCatalog}>
           Change catalog
         </button>
+        <button className="clear change-catalog" onClick={() => setFeedbackOpen(true)}>
+          Feedback &amp; contact
+        </button>
       </header>
+      {feedbackOpen && <FeedbackPanel onClose={closeFeedback} />}
       <AiStudio catalog={catalog} rawData={rawData} />
     </div>
   )

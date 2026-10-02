@@ -163,6 +163,9 @@ ipcMain.handle('catalog:reset', () => {
 
 ipcMain.handle('catalog:get', (): Catalog | null => state.catalog)
 
+// version shown in the Feedback & contact panel
+ipcMain.handle('app:version', (): string => app.getVersion())
+
 // Operation details panel: what the recipe book knows about one operation. Only facts from
 // the recipe book, resolved in the user's catalog; nothing is generated.
 ipcMain.handle('catalog:operationNotes', (_e, url: unknown): OperationNotes => {

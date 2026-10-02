@@ -12,6 +12,8 @@ const api = {
   pickFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickFile'),
   getCatalog: (): Promise<Catalog> => ipcRenderer.invoke('catalog:get'),
   getRawData: (): Promise<RawData> => ipcRenderer.invoke('catalog:rawData'),
+  /** The app's version (Feedback & contact panel). */
+  appVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
   /** What the recipe book knows about an operation (details panel). */
   operationNotes: (url: string): Promise<OperationNotes> => ipcRenderer.invoke('catalog:operationNotes', url),
 

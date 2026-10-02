@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { CatalogSummary, LoadResult } from '@shared/index'
+import { FEEDBACK_FORM_URL } from '@shared/links'
 
 type Tab = 'file' | 'path'
 
@@ -133,6 +134,10 @@ export default function CatalogLoader({ onLoaded }: { onLoaded: () => void }): J
         <p className="legal-note">
           Works with Siemens Teamcenter. Not affiliated with or endorsed by Siemens. Teamcenter is a trademark of
           Siemens. Your catalog and your requests stay on this computer; the AI runs locally.
+          <br />
+          <a href={FEEDBACK_FORM_URL} target="_blank" rel="noreferrer">
+            Feedback &amp; contact
+          </a>
         </p>
       </div>
     </div>
