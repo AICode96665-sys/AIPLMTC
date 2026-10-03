@@ -1,6 +1,6 @@
 {
   "name": "tc-soa-studio",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Describe your Teamcenter SOA program in plain English and get the Java — local AI, private by design.",
   "main": "./out/main/index.js",
   "author": "AICode96665-sys",
