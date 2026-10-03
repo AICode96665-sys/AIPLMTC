@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CatalogSummary, LoadResult } from '@shared/index'
 import { FEEDBACK_FORM_URL } from '@shared/links'
+import StructureHelp from './StructureHelp'
 
 type Tab = 'file' | 'path'
 
@@ -11,6 +12,22 @@ export default function CatalogLoader({ onLoaded }: { onLoaded: () => void }): J
   const [error, setError] = useState<string | null>(null)
   const [summary, setSummary] = useState<CatalogSummary | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  // structure.js already generated under %TC_ROOT% (one-click load), else the steps start open
+  const [found, setFound] = useState<string | null>(null)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const helpRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    window.tc
+      .findGenerated()
+      .then((p) => (p ? setFound(p) : setHelpOpen(true)))
+      .catch(() => setHelpOpen(true))
+  }, [])
+
+  const showHelp = (): void => {
+    setHelpOpen(true)
+    setTimeout(() => helpRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  }
 
   const handle = async (fn: () => Promise<LoadResult>): Promise<void> => {
     setBusy(true)
@@ -84,6 +101,17 @@ export default function CatalogLoader({ onLoaded }: { onLoaded: () => void }): J
           include your custom APIs and exact version.
         </p>
 
+        {found && (
+          <div className="found-banner">
+            <span>
+              Found <code>structure.js</code> at <span className="found-path">{found}</span>
+            </span>
+            <button className="btn-primary" disabled={busy} onClick={() => handle(() => window.tc.loadPath(found))}>
+              {busy ? 'Loading…' : 'Load'}
+            </button>
+          </div>
+        )}
+
         <div className="loader-tabs">
           <button className={tab === 'file' ? 'tab active' : 'tab'} onClick={() => setTab('file')}>
             Upload file
@@ -129,7 +157,24 @@ export default function CatalogLoader({ onLoaded }: { onLoaded: () => void }): J
           </div>
         )}
 
-        {error && <div className="loader-error">{error}</div>}
+        {error && (
+          <div className="loader-error">
+            {error}
+            <div className="loader-error-help">
+              Is this the right file?{' '}
+              <button className="link-btn" onClick={showHelp}>
+                How to generate structure.js
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="help-toggle" ref={helpRef}>
+          <button className="link-btn" onClick={() => setHelpOpen((o) => !o)} aria-expanded={helpOpen}>
+            Don&apos;t have structure.js? How to generate it {helpOpen ? '▾' : '▸'}
+          </button>
+        </div>
+        {helpOpen && <StructureHelp />}
 
         <p className="legal-note">
           Works with Siemens Teamcenter. Not affiliated with or endorsed by Siemens. Teamcenter is a trademark of

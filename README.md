@@ -67,7 +67,48 @@ Teamcenter is a trademark of Siemens.*
    (about 1 GB, once, with a progress bar and Cancel).
 3. **Your Teamcenter API catalog (`structure.js`)**: the data file behind the Teamcenter
    Services API reference that comes with your Teamcenter documentation. You must be licensed
-   to use it; the app does **not** include any Siemens data.
+   to use it; the app does **not** include any Siemens data. To create it, see
+   [Prerequisite: generate `structure.js`](#prerequisite-generate-structurejs) below.
+
+## Prerequisite: generate `structure.js`
+
+TC SOA Studio needs the `structure.js` file from your own Teamcenter installation. You
+generate it once with the Active Workspace (AWC) build tools.
+
+**You need:**
+
+- Teamcenter with the Active Workspace stage folder installed (`%TC_ROOT%\aws2\stage`)
+- Permission to run commands in that folder
+
+**Steps**
+
+1. **Open a Command Prompt.**
+   Run it as Administrator if Teamcenter is installed under `Program Files` or `C:\Siemens`.
+2. **Go to the AWC stage folder:**
+   ```bat
+   cd /d %TC_ROOT%\aws2\stage
+   ```
+   For example: `cd /d C:\Siemens\Teamcenter\13\aws2\stage`
+3. **Set up the AWC development environment:**
+   ```bat
+   initEnv.cmd
+   ```
+   This sets up Node, npm and the paths the build scripts need.
+   Run step 4 in the same Command Prompt window.
+4. **Generate the SOA API files:**
+   ```bat
+   npm run genSoaApi
+   ```
+   (Some setups use `aw genSoaApi` instead.)
+5. **Go to the output folder:**
+   ```bat
+   cd /d %TC_ROOT%\aws2\stage\out\soa\api
+   ```
+6. **Find `structure.js`.**
+   It's the key file among the generated files in `aws2\stage\out\soa\api\`.
+7. **Load it into TC SOA Studio.**
+   Drag `structure.js` onto the start screen, or paste its full path.
+   You only do this once; the app remembers it until you click **Change catalog**.
 
 ## Install
 

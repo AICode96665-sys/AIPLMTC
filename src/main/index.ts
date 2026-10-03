@@ -163,6 +163,15 @@ ipcMain.handle('catalog:reset', () => {
 
 ipcMain.handle('catalog:get', (): Catalog | null => state.catalog)
 
+// Start screen: where Active Workspace's genSoaApi writes structure.js. Only this one
+// location on the user's own PC is checked, and only when TC_ROOT is set.
+ipcMain.handle('catalog:findGenerated', (): string | null => {
+  const root = process.env['TC_ROOT']
+  if (!root) return null
+  const p = join(root, 'aws2', 'stage', 'out', 'soa', 'api', 'structure.js')
+  return existsSync(p) ? p : null
+})
+
 // version shown in the Feedback & contact panel
 ipcMain.handle('app:version', (): string => app.getVersion())
 

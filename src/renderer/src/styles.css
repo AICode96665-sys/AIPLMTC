@@ -111,10 +111,11 @@ html, body, #root {
 
 /* ---- Catalog loader screen ---- */
 .loader-screen {
-  display: flex; align-items: center; justify-content: center; height: 100vh;
+  display: flex; justify-content: center; height: 100vh; overflow-y: auto;
   background: var(--panel); padding: 20px;
 }
 .loader-card {
+  margin: auto 0; /* centred while it fits, scrolls from the top once the steps are open */
   width: 540px; max-width: 100%; background: #fff; border: 1px solid var(--border);
   border-radius: 14px; padding: 28px 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.10);
 }
@@ -133,6 +134,36 @@ html, body, #root {
   margin-top: 14px; padding: 10px 12px; background: #fdecea; color: #b00020;
   border: 1px solid #f5c6cb; border-radius: 8px; font-size: 13px; white-space: pre-wrap;
 }
+.loader-error-help { margin-top: 6px; color: var(--text); white-space: normal; }
+.loader-error-help .link-btn { padding: 0; font-size: 13px; }
+
+/* start screen: structure.js already generated under %TC_ROOT% */
+.found-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 8px;
+  background: var(--accent-soft); font-size: 13px;
+}
+.found-path { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+.found-banner .btn-primary { flex: none; padding: 6px 16px; font-size: 13px; }
+
+/* start screen: how to generate structure.js */
+.help-toggle { margin-top: 14px; }
+.help-toggle .link-btn { padding: 0; }
+.structure-help { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); font-size: 13px; line-height: 1.5; }
+.structure-help p { margin: 0 0 8px; }
+.structure-help ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.structure-help .muted { font-size: 12px; }
+.help-cmd {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 4px 0; padding: 5px 6px 5px 10px; background: #1e1e1e; border-radius: 6px;
+}
+.loader-card .help-cmd code { background: none; padding: 0; color: #d4d4d4; font-family: var(--mono); font-size: 12px; word-break: break-all; }
+.help-copy {
+  flex: none; padding: 2px 10px; font-size: 11px; border: 1px solid #555; border-radius: 4px;
+  background: #2d2d2d; color: #e5e5e5; cursor: pointer;
+}
+.help-copy:hover { border-color: #888; }
+
 .loader-error.floating { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 50; }
 
 .link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 13px; text-decoration: underline; }
