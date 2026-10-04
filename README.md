@@ -2,6 +2,12 @@
 
 ## Describe Teamcenter. Get the Java.
 
+https://github.com/user-attachments/assets/a0e9af23-d355-408f-8daa-5d3cdaf72ce1
+
+*▶ 77-second demo. Can't play it here? [Watch on Google Drive](https://drive.google.com/file/d/1z62AbH7O3WxFLGeRzSy9HTgW2k6u9vpR/view).
+Music: "Inspired" Kevin MacLeod (incompetech.com), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).*
+
 TC SOA Studio turns plain-English Teamcenter tasks into Java SOA client programs, using only
 operations from **your own** Teamcenter API catalog. No need to remember which service,
 which operation, or which request structure.
