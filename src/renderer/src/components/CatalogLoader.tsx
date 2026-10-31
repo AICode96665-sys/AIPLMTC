@@ -174,7 +174,7 @@ export default function CatalogLoader({ onLoaded }: { onLoaded: () => void }): J
             Don&apos;t have structure.js? How to generate it {helpOpen ? '▾' : '▸'}
           </button>
         </div>
-        {helpOpen && <StructureHelp />}
+        {helpOpen && <StructureHelp onClose={() => setHelpOpen(false)} />}
 
         <p className="legal-note">
           Works with Siemens Teamcenter. Not affiliated with or endorsed by Siemens. Teamcenter is a trademark of

@@ -19,9 +19,14 @@ function Command({ text }: { text: string }): JSX.Element {
   )
 }
 
-export default function StructureHelp(): JSX.Element {
+export default function StructureHelp({ onClose }: { onClose?: () => void }): JSX.Element {
   return (
     <div className="structure-help">
+      {onClose && (
+        <button className="help-close" onClick={onClose} aria-label="Close the help" title="Close">
+          ×
+        </button>
+      )}
       <p className="muted">
         TC SOA Studio needs the <code>structure.js</code> file from your own Teamcenter installation. You
         generate it once with the Active Workspace (AWC) build tools.
